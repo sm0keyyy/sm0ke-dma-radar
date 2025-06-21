@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Windows.Forms;
 using eft_dma_shared.Common.Misc;
+using eft_dma_shared.Common.Unity.LowLevel.Chams.EFT;
 
 namespace eft_dma_radar.UI.SKWidgetControl
 {

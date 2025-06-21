@@ -1,5 +1,6 @@
 ﻿using eft_dma_shared.Common.Misc;
 using eft_dma_shared.Common.Misc.Config;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
 using eft_dma_shared.Common.Unity.LowLevel.Hooks;
 using eft_dma_shared.Common.Unity.LowLevel.Types;
 using eft_dma_shared.Misc;
@@ -12,7 +13,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
-namespace eft_dma_shared.Common.Unity.LowLevel
+namespace eft_dma_shared.Common.Unity.LowLevel.Chams.EFT
 {
     public static class ChamsManager
     {
@@ -39,9 +40,9 @@ namespace eft_dma_shared.Common.Unity.LowLevel
                 { (ChamsMode.VisCheckGlow, ChamsEntityType.Teammate), "visibilitycheck.bundle" },
                 { (ChamsMode.VisCheckFlat, ChamsEntityType.Teammate), "vischeckflat.bundle" },
                 { (ChamsMode.WireFrame, ChamsEntityType.Teammate), "wireframepmc.bundle" },
-                { (ChamsMode.VisCheckGlow, ChamsEntityType.AimBotTarget), "visibilitycheck.bundle" },
-                { (ChamsMode.VisCheckFlat, ChamsEntityType.AimBotTarget), "vischeckflat.bundle" },
-                { (ChamsMode.WireFrame, ChamsEntityType.AimBotTarget), "wireframepmc.bundle" },
+                { (ChamsMode.VisCheckGlow, ChamsEntityType.AimbotTarget), "visibilitycheck.bundle" },
+                { (ChamsMode.VisCheckFlat, ChamsEntityType.AimbotTarget), "vischeckflat.bundle" },
+                { (ChamsMode.WireFrame, ChamsEntityType.AimbotTarget), "wireframepmc.bundle" },
                 { (ChamsMode.WireFrame, ChamsEntityType.QuestItem), "wireframepmc.bundle" },
                 { (ChamsMode.VisCheckGlow, ChamsEntityType.QuestItem), "visibilitycheck.bundle" },
                 { (ChamsMode.VisCheckFlat, ChamsEntityType.QuestItem), "vischeckflat.bundle" },
@@ -156,7 +157,7 @@ namespace eft_dma_shared.Common.Unity.LowLevel
             return mode switch
             {
                 ChamsMode.Basic => -1,
-                ChamsMode.Visible => -1, 
+                ChamsMode.Visible => -1,
                 _ => GetStandardMaterialId(mode, lootType)
             };
         }
@@ -226,7 +227,7 @@ namespace eft_dma_shared.Common.Unity.LowLevel
                 ChamsEntityType.Boss or
                 ChamsEntityType.Guard or
                 ChamsEntityType.PlayerScav or
-                ChamsEntityType.AimBotTarget => true,
+                ChamsEntityType.AimbotTarget => true,
                 _ => false
             };
         }
@@ -694,55 +695,6 @@ namespace eft_dma_shared.Common.Unity.LowLevel
         #region Types
 
         private readonly record struct UnityObjects(ulong MonoDomain, ulong MaterialClass, ulong ShaderTypeObject);
-
-        public enum ChamsMode : int
-        {
-            Basic = 1,
-            VisCheckGlow = 2,
-            Visible = 3,
-            VisCheckFlat = 4,
-            WireFrame = 5,
-            Item = 6,
-            QuestItem = 7,
-            ImportantItem = 8,
-            Aimbot = 9
-        }
-
-        public enum ChamsEntityType
-        {
-            PMC,
-            Teammate,
-            AI,
-            Boss,
-            Guard,
-            PlayerScav,
-            AimBotTarget,
-            Container,
-            QuestItem,
-            ImportantItem
-        }
-
-        public sealed class ChamsMaterial
-        {
-            public ulong Address { get; init; }
-            public int InstanceID { get; init; }
-            public int ColorVisible { get; set; }
-            public int ColorInvisible { get; set; }
-        }
-
-        public class ChamsMaterialStatus
-        {
-            public int ExpectedCount { get; set; }
-            public int LoadedCount { get; set; }
-            public int WorkingCount { get; set; }
-            public int FailedCount { get; set; }
-            public List<(ChamsMode, ChamsEntityType)> MissingCombos { get; set; } = new();
-            public List<(ChamsMode, ChamsEntityType)> FailedCombos { get; set; } = new();
-
-            public bool IsComplete => LoadedCount == ExpectedCount && WorkingCount == ExpectedCount;
-            public bool IsPartial => LoadedCount > 0 && LoadedCount < ExpectedCount;
-            public string StatusText => IsComplete ? "Complete" : IsPartial ? "Partial" : "Failed";
-        }
 
         #endregion
     }

@@ -1,7 +1,6 @@
-﻿using eft_dma_shared.Common.Unity.LowLevel;
+﻿using eft_dma_shared.Common.Unity.LowLevel.Chams;
 using SkiaSharp;
 using System.Text.Json.Serialization;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 
 namespace eft_dma_shared.Common.Misc.Config
 {
@@ -16,13 +15,7 @@ namespace eft_dma_shared.Common.Misc.Config
             { ChamsEntityType.PMC, new EntityChamsSettings() },
             { ChamsEntityType.Teammate, new EntityChamsSettings() },
             { ChamsEntityType.AI, new EntityChamsSettings() },
-            { ChamsEntityType.Boss, new EntityChamsSettings() },
-            { ChamsEntityType.Guard, new EntityChamsSettings() },
-            { ChamsEntityType.PlayerScav, new EntityChamsSettings() },
-            { ChamsEntityType.QuestItem, new EntityChamsSettings() },
-            { ChamsEntityType.ImportantItem, new EntityChamsSettings() },
-            { ChamsEntityType.Container, new EntityChamsSettings() },
-            { ChamsEntityType.AimBotTarget, new EntityChamsSettings() },
+            { ChamsEntityType.AimbotTarget, new EntityChamsSettings() }
         };
 
         public class EntityChamsSettings
@@ -103,13 +96,7 @@ namespace eft_dma_shared.Common.Misc.Config
                 ChamsEntityType.PMC,
                 ChamsEntityType.Teammate,
                 ChamsEntityType.AI,
-                ChamsEntityType.Boss,
-                ChamsEntityType.Guard,
-                ChamsEntityType.PlayerScav,
-                ChamsEntityType.QuestItem,
-                ChamsEntityType.ImportantItem,
-                ChamsEntityType.Container,
-                ChamsEntityType.AimBotTarget
+                ChamsEntityType.AimbotTarget
             };
 
             foreach (var entityType in allEntityTypes)

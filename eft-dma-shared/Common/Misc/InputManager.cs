@@ -250,7 +250,7 @@ namespace eft_dma_shared.Common.Misc
         {
             sessionState = 0;
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 8; i++)
             {
                 var t1 = process.MemReadAs<ulong>(sessionPtr);
                 if (t1.Value == 0)

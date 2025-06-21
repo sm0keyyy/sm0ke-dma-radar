@@ -5,7 +5,6 @@ using System.Windows.Input;
 using eft_dma_radar.Tarkov.Features;
 using eft_dma_radar.Tarkov.Features.MemoryWrites;
 using eft_dma_radar.UI.Misc;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
 using UserControl = System.Windows.Controls.UserControl;
@@ -18,6 +17,7 @@ using eft_dma_shared.Common.Misc;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
 using Brushes = System.Windows.Media.Brushes;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
 
 namespace eft_dma_radar.UI.Pages
 {

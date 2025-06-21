@@ -465,7 +465,7 @@ namespace eft_dma_radar.UI.Misc
             float maxLength = 0;
             foreach (var line in lines)
             {
-                var length = SKPaints.TextBoss.MeasureText(line);
+                var length = SKPaints.TextMouseover.MeasureText(line);
                 if (length > maxLength)
                     maxLength = length;
             }

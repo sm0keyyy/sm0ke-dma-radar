@@ -9,7 +9,6 @@ using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.Collections;
 using eft_dma_radar.UI.Pages;
 using eft_dma_radar.Tarkov.Features.MemoryWrites;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 using eft_dma_radar.Tarkov.Features;
 using eft_dma_radar.Tarkov.GameWorld;
 

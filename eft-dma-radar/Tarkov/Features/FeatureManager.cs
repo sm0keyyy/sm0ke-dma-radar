@@ -8,6 +8,7 @@ using eft_dma_shared.Common.Features;
 using eft_dma_shared.Common.Unity.LowLevel;
 using eft_dma_shared.Common.Unity.LowLevel.Hooks;
 using eft_dma_radar.UI.Misc;
+using eft_dma_shared.Common.Unity.LowLevel.Chams.EFT;
 
 namespace eft_dma_radar.Tarkov.Features
 {

@@ -7,6 +7,7 @@ using eft_dma_shared.Common.ESP;
 using eft_dma_shared.Common.Misc;
 using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.Misc.Data;
+using eft_dma_shared.Common.Misc.Data.EFT;
 using eft_dma_shared.Common.Players;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.LowLevel;
@@ -252,11 +253,11 @@ namespace eft_dma_radar.UI.Misc
         [JsonPropertyName("widgets")]
         public WidgetsConfig Widgets { get; private set; } = new();
         /// <summary>
-        /// Web Radar Configuration.
+        /// Hotkeys Configuration.
         /// </summary>
         [JsonInclude]
         [JsonPropertyName("hotKeys")]
-        public HotKeyConfig HotKeys { get; private set; } = new();
+        public HotkeyConfig HotKeys { get; private set; } = new();
         /// <summary>
         /// Web Radar Configuration.
         /// </summary>
@@ -412,7 +413,7 @@ namespace eft_dma_radar.UI.Misc
                 config.Widgets = new WidgetsConfig();
 
             if (config.HotKeys == null)
-                config.HotKeys = new HotKeyConfig();
+                config.HotKeys = new HotkeyConfig();
 
             if (config.WebRadar == null)
                 config.WebRadar = new WebRadarConfig();
@@ -711,21 +712,13 @@ namespace eft_dma_radar.UI.Misc
     {
         [JsonPropertyName("left")]
         public double Left { get; set; }
-
         [JsonPropertyName("top")]
         public double Top { get; set; }
-
-        [JsonPropertyName("width")]
-        public double Width { get; set; }
-
-        [JsonPropertyName("height")]
-        public double Height { get; set; }
 
         public static ToolbarPositionConfig FromToolbar(Border toolbar)
         {
             var left = Canvas.GetLeft(toolbar);
             var top = Canvas.GetTop(toolbar);
-
             if (double.IsNaN(left)) left = 0;
             if (double.IsNaN(top)) top = 0;
 
@@ -733,8 +726,6 @@ namespace eft_dma_radar.UI.Misc
             {
                 Left = left,
                 Top = top,
-                Width = toolbar.Width > 0 ? toolbar.Width : toolbar.ActualWidth,
-                Height = toolbar.Height > 0 ? toolbar.Height : toolbar.ActualHeight
             };
         }
 
@@ -745,16 +736,16 @@ namespace eft_dma_radar.UI.Misc
                 Canvas.SetLeft(toolbar, Left);
                 Canvas.SetTop(toolbar, Top);
 
-                if (Width > 0)
-                    toolbar.Width = Width;
-
-                if (Height > 0)
-                    toolbar.Height = Height;
+                toolbar.ClearValue(FrameworkElement.WidthProperty);
+                toolbar.ClearValue(FrameworkElement.HeightProperty);
             }
             else
             {
                 Canvas.SetLeft(toolbar, 20);
                 Canvas.SetTop(toolbar, 5);
+
+                toolbar.ClearValue(FrameworkElement.WidthProperty);
+                toolbar.ClearValue(FrameworkElement.HeightProperty);
             }
         }
     }

@@ -128,7 +128,7 @@
 
                                         <hc:ComboBox x:Name="cboChamsEntityType" Grid.Column="1">
                                             <ComboBoxItem Content="AI" Tag="AI"/>
-                                            <ComboBoxItem Content="Aimbot Target" Tag="AimBotTarget"/>
+                                            <ComboBoxItem Content="Aimbot Target" Tag="AimbotTarget"/>
                                             <ComboBoxItem Content="Boss" Tag="Boss"/>
                                             <ComboBoxItem Content="Player Scav" Tag="PlayerScav"/>
                                             <ComboBoxItem Content="PMC" Tag="PMC"/>

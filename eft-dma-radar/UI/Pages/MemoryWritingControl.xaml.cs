@@ -19,7 +19,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using static eft_dma_radar.Tarkov.Features.MemoryWrites.Aimbot;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 using static eft_dma_shared.Common.Unity.MonoLib;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;

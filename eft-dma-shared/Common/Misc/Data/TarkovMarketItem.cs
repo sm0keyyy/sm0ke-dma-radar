@@ -105,6 +105,11 @@ namespace eft_dma_shared.Common.Misc.Data
         [JsonIgnore]
         public bool IsWeapon => Tags.Contains("Weapon");
         /// <summary>
+        /// Is a Throwable Item.
+        /// </summary>
+        [JsonIgnore]
+        public bool IsThrowableWeapon => Tags.Contains("Throwable weapon");
+        /// <summary>
         /// Is a Weapon Mod.
         /// </summary>
         [JsonIgnore]

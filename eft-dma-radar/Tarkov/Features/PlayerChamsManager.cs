@@ -7,10 +7,11 @@ using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.Collections;
 using eft_dma_shared.Common.Unity.LowLevel;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
+using eft_dma_shared.Common.Unity.LowLevel.Chams.EFT;
 using eft_dma_shared.Common.Unity.LowLevel.Hooks;
 using eft_dma_shared.Common.Unity.LowLevel.Types;
 using System.Collections.Concurrent;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 
 namespace eft_dma_radar.Tarkov.Features
 {
@@ -77,9 +78,9 @@ namespace eft_dma_radar.Tarkov.Features
                 if (state.IsAimbotTarget && state.IsActive)
                     return;
 
-                var aimbotSettings = ChamsConfig.GetEntitySettings(ChamsEntityType.AimBotTarget);
-                var clothingMaterialId = GetMaterialId(aimbotSettings.ClothingChamsMode, game.CameraManager, ChamsEntityType.AimBotTarget, aimbotSettings);
-                var gearMaterialId = GetMaterialId(aimbotSettings.GearChamsMode, game.CameraManager, ChamsEntityType.AimBotTarget, aimbotSettings);
+                var aimbotSettings = ChamsConfig.GetEntitySettings(ChamsEntityType.AimbotTarget);
+                var clothingMaterialId = GetMaterialId(aimbotSettings.ClothingChamsMode, game.CameraManager, ChamsEntityType.AimbotTarget, aimbotSettings);
+                var gearMaterialId = GetMaterialId(aimbotSettings.GearChamsMode, game.CameraManager, ChamsEntityType.AimbotTarget, aimbotSettings);
 
                 var primaryMaterialId = clothingMaterialId != -1 ? clothingMaterialId : gearMaterialId;
                 var secondaryMaterialId = gearMaterialId != -1 ? gearMaterialId : clothingMaterialId;
@@ -96,7 +97,6 @@ namespace eft_dma_radar.Tarkov.Features
                 writeHandle.Execute(() => ValidateWrite(player, game));
 
                 UpdateStateForAimbot(player, aimbotSettings.ClothingChamsMode, aimbotSettings.GearChamsMode, clothingMaterialId, gearMaterialId);
-                ApplyColorsForAimbotPlayer(player, aimbotSettings);
 
                 LoneLogging.WriteLine($"[Player Chams] Applied aimbot chams (Clothing: {aimbotSettings.ClothingChamsMode}, Gear: {aimbotSettings.GearChamsMode}) to {player.Name}");
             }
@@ -255,7 +255,6 @@ namespace eft_dma_radar.Tarkov.Features
                 writes.Execute(() => ValidateWrite(player, game));
 
                 UpdateState(state, entitySettings, clothingMaterialId, gearMaterialId);
-                ApplyColorsForPlayer(player, entitySettings);
 
                 LoneLogging.WriteLine($"[Player Chams] Applied chams to {player.Name} - Clothing: {entitySettings.ClothingChamsMode}, Gear: {entitySettings.GearChamsMode}");
             }
@@ -336,17 +335,6 @@ namespace eft_dma_radar.Tarkov.Features
 
                 ProcessSlotDresses(writes, slot.Value, materialId);
             }
-        }
-
-        private static void ApplyColorsForAimbotPlayer(Player player, ChamsConfig.EntityChamsSettings aimbotSettings)
-        {
-            var entityType = ChamsEntityType.AimBotTarget;
-
-            if (aimbotSettings.ClothingChamsEnabled && !IsBasicMode(aimbotSettings.ClothingChamsMode))
-                ApplyColors(player, aimbotSettings.ClothingChamsMode, entityType);
-
-            if (aimbotSettings.GearChamsEnabled && aimbotSettings.GearChamsMode != aimbotSettings.ClothingChamsMode && !IsBasicMode(aimbotSettings.GearChamsMode))
-                ApplyColors(player, aimbotSettings.GearChamsMode, entityType);
         }
 
         private static void ProcessSlotDresses(ScatterWriteHandle writes, ulong slotValue, int materialId)
@@ -495,71 +483,6 @@ namespace eft_dma_radar.Tarkov.Features
         #endregion
 
         #region Color Management
-
-        private static void ApplyColorsForPlayer(Player player, ChamsConfig.EntityChamsSettings entitySettings)
-        {
-            var entityType = GetEntityType(player);
-
-            if (entitySettings.ClothingChamsEnabled && !IsBasicMode(entitySettings.ClothingChamsMode))
-                ApplyColors(player, entitySettings.ClothingChamsMode, entityType);
-
-            if (entitySettings.GearChamsEnabled && entitySettings.GearChamsMode != entitySettings.ClothingChamsMode && !IsBasicMode(entitySettings.GearChamsMode))
-                ApplyColors(player, entitySettings.GearChamsMode, entityType);
-        }
-
-        private static void ApplyColors(Player player, ChamsMode mode, ChamsEntityType entityType)
-        {
-            try
-            {
-                if (IsBasicMode(mode))
-                    return;
-
-                var entitySettings = ChamsConfig.GetEntitySettings(entityType);
-
-                if (!ChamsManager.Materials.TryGetValue((mode, entityType), out var material) || material.InstanceID == 0)
-                {
-                    LoneLogging.WriteLine($"[Player Chams] No material found for {mode}/{entityType}");
-                    return;
-                }
-
-                var materialColorSettings = entitySettings.MaterialColors?.ContainsKey(mode) == true
-                    ? entitySettings.MaterialColors[mode]
-                    : null;
-
-                SKColor visibleColor, invisibleColor;
-
-                if (materialColorSettings != null)
-                {
-                    if (!SKColor.TryParse(materialColorSettings.VisibleColor, out visibleColor))
-                        visibleColor = SKColor.Parse("#00FF00");
-
-                    if (!SKColor.TryParse(materialColorSettings.InvisibleColor, out invisibleColor))
-                        invisibleColor = SKColor.Parse("#FF0000");
-                }
-                else
-                {
-                    if (!SKColor.TryParse(entitySettings.VisibleColor, out visibleColor))
-                        visibleColor = SKColor.Parse("#00FF00");
-
-                    if (!SKColor.TryParse(entitySettings.InvisibleColor, out invisibleColor))
-                        invisibleColor = SKColor.Parse("#FF0000");
-                }
-
-                using var chamsColorMem = new RemoteBytes(SizeChecker<UnityColor>.Size);
-
-                var visibleUnityColor = new UnityColor(visibleColor.Red, visibleColor.Green, visibleColor.Blue, visibleColor.Alpha);
-                var invisibleUnityColor = new UnityColor(invisibleColor.Red, invisibleColor.Green, invisibleColor.Blue, invisibleColor.Alpha);
-
-                NativeMethods.SetMaterialColor(chamsColorMem, material.Address, material.ColorVisible, visibleUnityColor);
-                NativeMethods.SetMaterialColor(chamsColorMem, material.Address, material.ColorInvisible, invisibleUnityColor);
-
-                LoneLogging.WriteLine($"[Player Chams] Applied material-specific colors to {player.Name}: Mode={mode}, Visible={materialColorSettings?.VisibleColor ?? entitySettings.VisibleColor}, Invisible={materialColorSettings?.InvisibleColor ?? entitySettings.InvisibleColor}");
-            }
-            catch (Exception ex)
-            {
-                LoneLogging.WriteLine($"[Player Chams] Failed to apply colors to {player.Name}: {ex.Message}");
-            }
-        }
 
         public static void ApplyConfiguredColors()
         {
@@ -1100,13 +1023,13 @@ namespace eft_dma_radar.Tarkov.Features
         {
             return player.Type switch
             {
-                Player.PlayerType.USEC or Player.PlayerType.BEAR => ChamsEntityType.PMC,
+                Player.PlayerType.USEC or Player.PlayerType.BEAR or Player.PlayerType.SpecialPlayer or Player.PlayerType.Streamer => ChamsEntityType.PMC,
                 Player.PlayerType.Teammate => ChamsEntityType.Teammate,
                 Player.PlayerType.AIScav => ChamsEntityType.AI,
                 Player.PlayerType.AIBoss => ChamsEntityType.Boss,
                 Player.PlayerType.AIRaider => ChamsEntityType.Guard,
                 Player.PlayerType.PScav => ChamsEntityType.PlayerScav,
-                _ => ChamsEntityType.AimBotTarget,
+                _ => ChamsEntityType.AimbotTarget,
             };
         }
 
@@ -1127,7 +1050,7 @@ namespace eft_dma_radar.Tarkov.Features
             var playerEntityTypes = new[] {
                 ChamsEntityType.PMC, ChamsEntityType.Teammate, ChamsEntityType.AI,
                 ChamsEntityType.Boss, ChamsEntityType.Guard, ChamsEntityType.PlayerScav,
-                ChamsEntityType.AimBotTarget
+                ChamsEntityType.AimbotTarget
             };
 
             sb.AppendLine("\nMaterial Availability:");

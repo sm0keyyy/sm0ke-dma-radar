@@ -6,8 +6,8 @@ using eft_dma_shared.Common.Misc;
 using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.LowLevel;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
 using static eft_dma_shared.Common.Misc.Config.ChamsConfig;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 
 namespace eft_dma_radar.Tarkov.Features.MemoryWrites
 {

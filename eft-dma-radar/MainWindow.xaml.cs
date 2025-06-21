@@ -2023,6 +2023,7 @@ namespace eft_dma_radar
                 var toolbarConfig = Config.ToolbarPosition;
                 var originalLeft = toolbarConfig.Left;
                 var originalTop = toolbarConfig.Top;
+
                 var toolbarWidth = customToolbar?.ActualWidth > 0 ? customToolbar.ActualWidth : 200;
                 var toolbarHeight = customToolbar?.ActualHeight > 0 ? customToolbar.ActualHeight : 40;
 

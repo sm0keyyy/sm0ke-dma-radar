@@ -164,12 +164,6 @@ namespace eft_dma_radar.Tarkov.Features.MemoryWrites
                         Cache.AimbotLockedPlayer = GetBestAimbotTarget(game, localPlayer);
                     }
 
-                    if (Cache.AimbotLockedPlayer is not null)
-                    {
-                        if (!Cache.AimbotLockedPlayer.IsAimbotLocked)
-                            PlayerChamsManager.ApplyAimbotChams(Cache.AimbotLockedPlayer, game);
-                    }
-
                     if (Cache.AimbotLockedPlayer is null)
                     {
                         Thread.Sleep(1);

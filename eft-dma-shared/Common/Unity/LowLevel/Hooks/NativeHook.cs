@@ -73,7 +73,8 @@ namespace eft_dma_shared.Common.Unity.LowLevel.Hooks
                 HookedMonoFunc = default;
                 UnityPlayerDll = default;
                 MonoDll = default;
-                ChamsManager.Reset();
+                Chams.EFT.ChamsManager.Reset();
+                Chams.Arena.ChamsManager.Reset();
                 AssetFactory.Reset();
                 AntiPage.Reset();
                 _ratelimit.Reset();

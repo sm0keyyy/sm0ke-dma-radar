@@ -10,7 +10,9 @@ using eft_dma_shared.Common.ESP;
 using eft_dma_shared.Common.Features;
 using eft_dma_shared.Common.Maps;
 using eft_dma_shared.Common.Misc;
+using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.Misc.Data;
+using eft_dma_shared.Common.Misc.Data.EFT;
 using eft_dma_shared.Common.UI.Controls;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.LowLevel.PhysX;
@@ -260,15 +262,16 @@ namespace eft_dma_radar.UI.Pages
                 var clipboardText = Clipboard.GetText();
                 var warningResult = MessageBox.Show(
                         "WARNING: Importing a configuration will replace most current settings including:\n\n" +
-                        "• General settings & UI preferences\n" +
+                        "• Compatible general settings & UI preferences\n" +
                         "• Player/Entity display settings\n" +
-                        "• Color configurations\n" +
+                        "• Color configurations (compatible colors only)\n" +
                         "• Hotkey assignments\n" +
                         "• ESP configurations\n" +
-                        "• Loot settings\n" +
                         "• Panel and toolbar positions\n" +
-                        "• And other application settings\n\n" +
-                        "NOTE: Cache and WebRadar settings will be preserved.\n\n" +
+                        "• Memory writing settings\n" +
+                        "• And other compatible settings\n\n" +
+                        "NOTE: Incompatible settings will be ignored.\n" +
+                        "Cache settings will be preserved.\n\n" +
                         "This action cannot be undone. Continue?",
                         "Import Configuration Warning",
                         MessageBoxButton.YesNo,
@@ -277,15 +280,15 @@ namespace eft_dma_radar.UI.Pages
                 if (warningResult != MessageBoxResult.Yes)
                     return;
 
-                Config importedConfig = null;
-
                 var importButton = this.FindName("mnuImportConfig") as MenuItem;
                 if (importButton != null)
                     importButton.IsEnabled = false;
 
                 try
                 {
-                    importedConfig = await Task.Run(() =>
+                    Config importedConfig = null;
+
+                    await Task.Run(() =>
                     {
                         try
                         {
@@ -295,14 +298,23 @@ namespace eft_dma_radar.UI.Pages
                                 IgnoreReadOnlyProperties = true,
                                 ReadCommentHandling = JsonCommentHandling.Skip,
                                 AllowTrailingCommas = true,
-                                PropertyNameCaseInsensitive = true
+                                PropertyNameCaseInsensitive = true,
+                                Converters = { new SafeEnumConverter() }
                             };
 
-                            return JsonSerializer.Deserialize<Config>(clipboardText, options);
+                            importedConfig = JsonSerializer.Deserialize<Config>(clipboardText, options);
+
+                            if (importedConfig == null)
+                            {
+                                throw new InvalidOperationException("Deserialized config is null");
+                            }
+
+                            LoneLogging.WriteLine("[Config] Configuration deserialized successfully with ignored incompatible properties");
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            return null;
+                            LoneLogging.WriteLine($"[Config] Failed to process configuration: {ex.Message}");
+                            throw new JsonException("Invalid configuration data in clipboard", ex);
                         }
                     });
 
@@ -322,10 +334,10 @@ namespace eft_dma_radar.UI.Pages
 
                             var currentCache = Config.Cache;
                             var currentWebRadar = Config.WebRadar;
-
-                            Misc.Config.EnsureComplexObjectsInitialized(importedConfig);
-                            importedConfig.Cache = currentCache;
                             importedConfig.WebRadar = currentWebRadar;
+
+                            Config.EnsureComplexObjectsInitialized(importedConfig);
+                            importedConfig.Cache = currentCache;
 
                             if (importedConfig.MemWrites.MemWritesEnabled)
                             {
@@ -419,7 +431,7 @@ namespace eft_dma_radar.UI.Pages
 
                             Config.Save();
 
-                            LoneLogging.WriteLine("[Config] Configuration imported successfully - all settings including panel and toolbar positions have been applied");
+                            LoneLogging.WriteLine("[Config] Configuration imported successfully - compatible settings applied, incompatible ones ignored");
                         }
                         catch (Exception ex)
                         {
@@ -428,7 +440,7 @@ namespace eft_dma_radar.UI.Pages
                         }
                     });
 
-                    NotificationsShared.Success("[Config] Configuration imported successfully! All panels and toolbar have been positioned within window bounds. Cache and WebRadar settings preserved.");
+                    NotificationsShared.Success("Configuration imported successfully! Compatible settings applied, incompatible settings ignored.");
                 }
                 catch (Exception ex)
                 {
@@ -966,28 +978,49 @@ namespace eft_dma_radar.UI.Pages
                         item.IsSelected = true;
                     else
                         item.IsSelected = false;
+                }
 
-                    switch (entityType)
-                    {
-                        case "Grenade":
-                            chkExplosiveRadius.IsChecked = settings.ShowRadius;
-                            break;
-                        case "Door":
-                            chkShowLockedDoors.IsChecked = settings.ShowLockedDoors;
-                            chkShowUnlockedDoors.IsChecked = settings.ShowUnlockedDoors;
-                            break;
-                        case "Exfil":
-                            chkHideInactive.IsChecked = settings.HideInactiveExfils;
-                            break;
-                        case "Tripwire":
-                            chkShowTripwireLine.IsChecked = settings.ShowTripwireLine;
-                            break;
-                    }
+                switch (entityType)
+                {
+                    case "Grenade":
+                        chkExplosiveRadius.IsChecked = settings.ShowRadius;
+                        break;
+                    case "Door":
+                        chkShowLockedDoors.IsChecked = settings.ShowLockedDoors;
+                        chkShowUnlockedDoors.IsChecked = settings.ShowUnlockedDoors;
+                        break;
+                    case "Exfil":
+                        chkHideInactive.IsChecked = settings.HideInactiveExfils;
+                        break;
+                    case "Tripwire":
+                        chkShowTripwireLine.IsChecked = settings.ShowTripwireLine;
+                        break;
                 }
             }
             finally
             {
                 _isLoadingEntitySettings = false;
+            }
+
+            grenadeSettings.Visibility = Visibility.Collapsed;
+            doorSettings.Visibility = Visibility.Collapsed;
+            exfilSettings.Visibility = Visibility.Collapsed;
+            tripwireSettings.Visibility = Visibility.Collapsed;
+
+            switch (_currentEntityType)
+            {
+                case "Grenade":
+                    grenadeSettings.Visibility = Visibility.Visible;
+                    break;
+                case "Door":
+                    doorSettings.Visibility = Visibility.Visible;
+                    break;
+                case "Exfil":
+                    exfilSettings.Visibility = Visibility.Visible;
+                    break;
+                case "Tripwire":
+                    tripwireSettings.Visibility = Visibility.Visible;
+                    break;
             }
         }
 
@@ -1700,27 +1733,6 @@ namespace eft_dma_radar.UI.Pages
 
                 _currentEntityType = item.Tag.ToString();
                 LoadEntityTypeSettings(_currentEntityType);
-
-                grenadeSettings.Visibility = Visibility.Collapsed;
-                doorSettings.Visibility = Visibility.Collapsed;
-                exfilSettings.Visibility = Visibility.Collapsed;
-                tripwireSettings.Visibility = Visibility.Collapsed;
-
-                switch (_currentEntityType)
-                {
-                    case "Grenade":
-                        grenadeSettings.Visibility = Visibility.Visible;
-                        break;
-                    case "Door":
-                        doorSettings.Visibility = Visibility.Visible;
-                        break;
-                    case "Exfil":
-                        exfilSettings.Visibility = Visibility.Visible;
-                        break;
-                    case "Tripwire":
-                        tripwireSettings.Visibility = Visibility.Visible;
-                        break;
-                }
             }
         }
 
@@ -2308,7 +2320,7 @@ namespace eft_dma_radar.UI.Pages
 
             AvailableHotkeyActions.Clear();
 
-            foreach (PropertyInfo prop in typeof(HotKeyConfig).GetProperties())
+            foreach (PropertyInfo prop in typeof(HotkeyConfig).GetProperties())
             {
                 var displayName = SplitCamelCase(prop.Name);
                 AvailableHotkeyActions.Add(new HotkeyActionModel
@@ -2330,7 +2342,7 @@ namespace eft_dma_radar.UI.Pages
             _toggleStates.Clear();
 
             var config = Config.HotKeys;
-            var properties = typeof(HotKeyConfig).GetProperties();
+            var properties = typeof(HotkeyConfig).GetProperties();
 
             foreach (var prop in properties)
             {
@@ -2361,8 +2373,8 @@ namespace eft_dma_radar.UI.Pages
         {
             return actionKey switch
             {
-                nameof(HotKeyConfig.ZoomIn) => true,
-                nameof(HotKeyConfig.ZoomOut) => true,
+                nameof(HotkeyConfig.ZoomIn) => true,
+                nameof(HotkeyConfig.ZoomOut) => true,
                 _ => false
             };
         }
@@ -2375,7 +2387,7 @@ namespace eft_dma_radar.UI.Pages
         private IEnumerable<(string ActionKey, HotkeyEntry Entry)> GetAllHotkeys()
         {
             var config = Config.HotKeys;
-            var props = typeof(HotKeyConfig).GetProperties();
+            var props = typeof(HotkeyConfig).GetProperties();
 
             foreach (var prop in props)
             {
@@ -2394,10 +2406,10 @@ namespace eft_dma_radar.UI.Pages
             switch (actionKey)
             {
                 #region Testing
-                //case nameof(HotKeyConfig.TestAction):
+                //case nameof(HotkeyConfig.TestAction):
                     //LoneLogging.WriteLine($"Test action executed! IsOffline: {Memory.IsOffline}");
                     //break;
-                //case nameof(HotKeyConfig.TestAction2):
+                //case nameof(HotkeyConfig.TestAction2):
                   // try
                   // {
                   //     var from = Memory.LocalPlayer.Skeleton.Bones[eft_dma_shared.Common.Unity.Bones.HumanHead].Position;
@@ -2420,49 +2432,49 @@ namespace eft_dma_radar.UI.Pages
                 #endregion
 
                 #region Loot
-                case nameof(HotKeyConfig.ShowLoot):
+                case nameof(HotkeyConfig.ShowLoot):
                     Config.ProcessLoot = isActive;
                     mainWindow.LootSettingsControl.chkProcessLoot.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.ShowMeds):
+                case nameof(HotkeyConfig.ShowMeds):
                     LootFilterControl.ShowMeds = isActive;
                     mainWindow.LootSettingsControl.UpdateSpecificLootFilterOption("Show Meds", isActive);
                     break;
-                case nameof(HotKeyConfig.ShowFood):
+                case nameof(HotkeyConfig.ShowFood):
                     LootFilterControl.ShowFood = isActive;
                     mainWindow.LootSettingsControl.UpdateSpecificLootFilterOption("Show Food", isActive);
                     break;
-                case nameof(HotKeyConfig.ShowBackpacks):
+                case nameof(HotkeyConfig.ShowBackpacks):
                     LootFilterControl.ShowBackpacks = isActive;
                     mainWindow.LootSettingsControl.UpdateSpecificLootFilterOption("Show Backpacks", isActive);
                     break;
-                case nameof(HotKeyConfig.ShowContainers):
+                case nameof(HotkeyConfig.ShowContainers):
                     Config.Containers.Show = isActive;
                     mainWindow.LootSettingsControl.chkStaticContainers.IsChecked = isActive;
                     break;
                 #endregion
 
                 #region Fuser ESP
-                case nameof(HotKeyConfig.ToggleFuserESP):
+                case nameof(HotkeyConfig.ToggleFuserESP):
                     ESPForm.ShowESP = isActive;
                     break;
                 #endregion
 
                 #region Memory Writes
                 // Global
-                case nameof(HotKeyConfig.ToggleRageMode):
+                case nameof(HotkeyConfig.ToggleRageMode):
                     Config.MemWrites.RageMode = isActive;
                     mainWindow.MemoryWritingControl.chkRageMode.IsChecked = isActive;
                     break;
                 // Aimbot
-                case nameof(HotKeyConfig.ToggleAimbot):
+                case nameof(HotkeyConfig.ToggleAimbot):
                     Config.MemWrites.Aimbot.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkEnableAimbot.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.EngageAimbot):
+                case nameof(HotkeyConfig.EngageAimbot):
                     Aimbot.Engaged = isActive;
                     break;
-                case nameof(HotKeyConfig.ToggleAimbotMode):
+                case nameof(HotkeyConfig.ToggleAimbotMode):
                     if (isActive)
                     {
                         Config.MemWrites.Aimbot.TargetingMode = Config.MemWrites.Aimbot.TargetingMode == AimbotTargetingMode.FOV
@@ -2470,160 +2482,160 @@ namespace eft_dma_radar.UI.Pages
                             : AimbotTargetingMode.FOV;
                     }
                     break;
-                case nameof(HotKeyConfig.AimbotBone):
+                case nameof(HotkeyConfig.AimbotBone):
                     if (isActive)
                         mainWindow.MemoryWritingControl.ToggleAimbotBone();
                     break;
-                case nameof(HotKeyConfig.SafeLock):
+                case nameof(HotkeyConfig.SafeLock):
                     Config.MemWrites.Aimbot.SilentAim.SafeLock = isActive;
                     mainWindow.MemoryWritingControl.UpdateSpecificAimbotOption("Safe Lock", isActive);
                     break;
-                case nameof(HotKeyConfig.RandomBone):
+                case nameof(HotkeyConfig.RandomBone):
                     Config.MemWrites.Aimbot.RandomBone.Enabled = isActive;
                     mainWindow.MemoryWritingControl.UpdateSpecificAimbotOption("Random Bone", isActive);
                     break;
-                case nameof(HotKeyConfig.AutoBone):
+                case nameof(HotkeyConfig.AutoBone):
                     Config.MemWrites.Aimbot.SilentAim.AutoBone = isActive;
                     mainWindow.MemoryWritingControl.UpdateSpecificAimbotOption("Auto Bone", isActive);
                     break;
-                case nameof(HotKeyConfig.HeadshotAI):
+                case nameof(HotkeyConfig.HeadshotAI):
                     Config.MemWrites.Aimbot.HeadshotAI = isActive;
                     mainWindow.MemoryWritingControl.UpdateSpecificAimbotOption("Headshot AI", isActive);
                     break;
                 // Weapons
-                case nameof(HotKeyConfig.NoMalfunctions):
+                case nameof(HotkeyConfig.NoMalfunctions):
                     Config.MemWrites.NoWeaponMalfunctions = isActive;
                     mainWindow.MemoryWritingControl.chkNoWeaponMalfunctions.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.FastWeaponOps):
+                case nameof(HotkeyConfig.FastWeaponOps):
                     Config.MemWrites.FastWeaponOps = isActive;
                     mainWindow.MemoryWritingControl.chkFastWeaponOps.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.DisableWeaponCollision):
+                case nameof(HotkeyConfig.DisableWeaponCollision):
                     Config.MemWrites.DisableWeaponCollision = isActive;
                     mainWindow.MemoryWritingControl.chkDisableWeaponCollision.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.NoRecoil):
+                case nameof(HotkeyConfig.NoRecoil):
                     Config.MemWrites.NoRecoil = isActive;
                     mainWindow.MemoryWritingControl.chkNoRecoil.IsChecked = isActive;
                     break;
                 // Movement
-                case nameof(HotKeyConfig.InfiniteStamina):
+                case nameof(HotkeyConfig.InfiniteStamina):
                     Config.MemWrites.InfStamina = isActive;
                     mainWindow.MemoryWritingControl.chkInfiniteStamina.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.WideLean):
+                case nameof(HotkeyConfig.WideLean):
                     Config.MemWrites.WideLean.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkWideLean.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.WideLeanUp):
+                case nameof(HotkeyConfig.WideLeanUp):
                     SetWideLeanDirection(isActive ? WideLean.EWideLeanDirection.Up : WideLean.EWideLeanDirection.Off);
                     break;
-                case nameof(HotKeyConfig.WideLeanLeft):
+                case nameof(HotkeyConfig.WideLeanLeft):
                     SetWideLeanDirection(isActive ? WideLean.EWideLeanDirection.Left : WideLean.EWideLeanDirection.Off);
                     break;
-                case nameof(HotKeyConfig.WideLeanRight):
+                case nameof(HotkeyConfig.WideLeanRight):
                     SetWideLeanDirection(isActive ? WideLean.EWideLeanDirection.Right : WideLean.EWideLeanDirection.Off);
                     break;
-                case nameof(HotKeyConfig.MoveSpeed):
+                case nameof(HotkeyConfig.MoveSpeed):
                     Config.MemWrites.MoveSpeed.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkMoveSpeed.IsChecked = isActive;
                     break;
                 // World
-                case nameof(HotKeyConfig.DisableShadows):
+                case nameof(HotkeyConfig.DisableShadows):
                     Config.MemWrites.DisableShadows = isActive;
                     mainWindow.MemoryWritingControl.chkDisableShadows.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.DisableGrass):
+                case nameof(HotkeyConfig.DisableGrass):
                     Config.MemWrites.DisableGrass = isActive;
                     mainWindow.MemoryWritingControl.chkDisableGrass.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.ClearWeather):
+                case nameof(HotkeyConfig.ClearWeather):
                     Config.MemWrites.ClearWeather = isActive;
                     mainWindow.MemoryWritingControl.chkClearWeather.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.TimeOfDay):
+                case nameof(HotkeyConfig.TimeOfDay):
                     Config.MemWrites.TimeOfDay.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkTimeOfDay.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.FullBright):
+                case nameof(HotkeyConfig.FullBright):
                     Config.MemWrites.FullBright.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkFullBright.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.LootThroughWalls):
+                case nameof(HotkeyConfig.LootThroughWalls):
                     Config.MemWrites.LootThroughWalls.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkLTW.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.ExtendedReach):
+                case nameof(HotkeyConfig.ExtendedReach):
                     Config.MemWrites.ExtendedReach.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkExtendedReach.IsChecked = isActive;
                     break;
                 // Camera
-                case nameof(HotKeyConfig.NoVisor):
+                case nameof(HotkeyConfig.NoVisor):
                     Config.MemWrites.NoVisor = isActive;
                     mainWindow.MemoryWritingControl.chkNoVisor.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.NightVision):
+                case nameof(HotkeyConfig.NightVision):
                     Config.MemWrites.NightVision = isActive;
                     mainWindow.MemoryWritingControl.chkNightVision.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.ThermalVision):
+                case nameof(HotkeyConfig.ThermalVision):
                     Config.MemWrites.ThermalVision = isActive;
                     mainWindow.MemoryWritingControl.chkThermalVision.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.ThirdPerson):
+                case nameof(HotkeyConfig.ThirdPerson):
                     Config.MemWrites.ThirdPerson = isActive;
                     mainWindow.MemoryWritingControl.chkThirdPerson.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.OwlMode):
+                case nameof(HotkeyConfig.OwlMode):
                     Config.MemWrites.OwlMode = isActive;
                     mainWindow.MemoryWritingControl.chkOwlMode.IsChecked = isActive;
                     break;
-                case nameof(HotKeyConfig.InstantZoom):
+                case nameof(HotkeyConfig.InstantZoom):
                     Config.MemWrites.FOV.InstantZoomActive = isActive;
                     break;
                 // Misc
-                case nameof(HotKeyConfig.BigHeads):
+                case nameof(HotkeyConfig.BigHeads):
                     Config.MemWrites.BigHead.Enabled = isActive;
                     mainWindow.MemoryWritingControl.chkBigHeads.IsChecked = isActive;
                     break;
                 #endregion
 
                 #region General Settings
-                case nameof(HotKeyConfig.ESPWidget):
+                case nameof(HotkeyConfig.ESPWidget):
                     Config.ESPWidgetEnabled = isActive;
                     UpdateSpecificWidgetOption("ESP Widget", isActive);
                     break;
-                case nameof(HotKeyConfig.DebugWidget):
+                case nameof(HotkeyConfig.DebugWidget):
                     Config.ShowDebugWidget = isActive;
                     UpdateSpecificWidgetOption("Debug Widget", isActive);
                     break;
-                case nameof(HotKeyConfig.PlayerInfoWidget):
+                case nameof(HotkeyConfig.PlayerInfoWidget):
                     Config.ShowInfoTab = isActive;
                     UpdateSpecificWidgetOption("Player Info Widget", isActive);
                     break;
-                case nameof(HotKeyConfig.LootInfoWidget):
+                case nameof(HotkeyConfig.LootInfoWidget):
                     Config.ShowLootInfoWidget = isActive;
                     UpdateSpecificWidgetOption("Loot Info Widget", isActive);
                     break;
-                case nameof(HotKeyConfig.ConnectGroups):
+                case nameof(HotkeyConfig.ConnectGroups):
                     Config.ConnectGroups = isActive;
                     UpdateSpecificGeneralOption("Connect Groups", isActive);
                     break;
-                case nameof(HotKeyConfig.MaskNames):
+                case nameof(HotkeyConfig.MaskNames):
                     Config.MaskNames = isActive;
                     UpdateSpecificGeneralOption("Mask Names", isActive);
                     break;
-                case nameof(HotKeyConfig.ZoomIn):
+                case nameof(HotkeyConfig.ZoomIn):
                     ExecuteContinuousAction(actionKey, () => mainWindow.ZoomIn(HK_ZoomAmt));
                     break;
-                case nameof(HotKeyConfig.ZoomOut):
+                case nameof(HotkeyConfig.ZoomOut):
                     ExecuteContinuousAction(actionKey, () => mainWindow.ZoomOut(HK_ZoomAmt));
                     break;
-                case nameof(HotKeyConfig.BattleMode):
+                case nameof(HotkeyConfig.BattleMode):
                     Config.BattleMode = isActive;
                     break;
-                case nameof(HotKeyConfig.QuestHelper):
+                case nameof(HotkeyConfig.QuestHelper):
                     Config.QuestHelper.Enabled = isActive;
                     chkQuestHelper.IsChecked = isActive;
                     break;
@@ -2642,7 +2654,7 @@ namespace eft_dma_radar.UI.Pages
             if (IsContinuousAction(actionKey))
             {
                 var config = Config.HotKeys;
-                var prop = typeof(HotKeyConfig).GetProperty(actionKey);
+                var prop = typeof(HotkeyConfig).GetProperty(actionKey);
                 if (prop?.GetValue(config) is HotkeyEntry entry)
                 {
                     Task.Run(async () =>
@@ -2697,7 +2709,7 @@ namespace eft_dma_radar.UI.Pages
                 {
                     _hotkeyList.Remove(existingAction);
 
-                    var prop = typeof(HotKeyConfig).GetProperty(actionKey);
+                    var prop = typeof(HotkeyConfig).GetProperty(actionKey);
                     if (prop?.GetValue(Config.HotKeys) is HotkeyEntry oldEntry)
                     {
                         oldEntry.Enabled = false;
@@ -2712,7 +2724,7 @@ namespace eft_dma_radar.UI.Pages
                     Type = type
                 });
 
-                var configProp = typeof(HotKeyConfig).GetProperty(actionKey);
+                var configProp = typeof(HotkeyConfig).GetProperty(actionKey);
                 if (configProp?.GetValue(Config.HotKeys) is HotkeyEntry entry)
                 {
                     entry.Enabled = true;
@@ -2738,7 +2750,7 @@ namespace eft_dma_radar.UI.Pages
 
                 if (!string.IsNullOrEmpty(actionKey))
                 {
-                    var prop = typeof(HotKeyConfig).GetProperty(actionKey);
+                    var prop = typeof(HotkeyConfig).GetProperty(actionKey);
                     if (prop?.GetValue(Config.HotKeys) is HotkeyEntry entry)
                     {
                         entry.Enabled = false;

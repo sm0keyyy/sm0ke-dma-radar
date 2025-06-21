@@ -5,10 +5,10 @@ using eft_dma_shared.Common.Misc;
 using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.LowLevel;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
+using eft_dma_shared.Common.Unity.LowLevel.Chams.EFT;
 using eft_dma_shared.Common.Unity.LowLevel.Hooks;
 using eft_dma_shared.Common.Unity.LowLevel.Types;
-using System.Collections.Concurrent;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 
 namespace eft_dma_radar.Tarkov.Features
 {
@@ -321,7 +321,6 @@ namespace eft_dma_radar.Tarkov.Features
 
                 CacheItemMaterials(itemId, itemGroup.First().InteractiveClass);
                 ApplyChamsToItemGroup(itemGroup, materialId);
-                ApplyColorsToLootMaterials(itemId, mode);
 
                 _activeLootChams[itemId] = mode;
                 LoneLogging.WriteLine($"[Loot Chams] Applied {mode} to {itemGroup.Count()} instances of {itemId}");
@@ -539,67 +538,6 @@ namespace eft_dma_radar.Tarkov.Features
 
         #region Color Management
 
-        private static void ApplyColorsToLootMaterials(string itemId, ChamsMode mode)
-        {
-            try
-            {
-                if (mode == ChamsMode.Basic || mode == ChamsMode.Visible)
-                    return;
-
-                var (entityType, entitySettings) = DetermineEntityTypeAndSettings(mode);
-                if (!entityType.HasValue || entitySettings == null)
-                {
-                    LoneLogging.WriteLine($"[Loot Chams] Could not determine entity type for {itemId} with mode {mode}");
-                    return;
-                }
-
-                if (!ChamsManager.Materials.TryGetValue((mode, entityType.Value), out var material) || material.InstanceID == 0)
-                {
-                    LoneLogging.WriteLine($"[Loot Chams] No material found for {mode}/{entityType.Value}");
-                    return;
-                }
-
-                SKColor visibleColor, invisibleColor;
-
-                // Check if we have material-specific colors
-                var materialColorSettings = entitySettings.MaterialColors?.ContainsKey(mode) == true
-                    ? entitySettings.MaterialColors[mode]
-                    : null;
-
-                if (materialColorSettings != null)
-                {
-                    // Use material-specific colors
-                    if (!SKColor.TryParse(materialColorSettings.VisibleColor, out visibleColor))
-                        visibleColor = SKColor.Parse("#00FF00");
-
-                    if (!SKColor.TryParse(materialColorSettings.InvisibleColor, out invisibleColor))
-                        invisibleColor = SKColor.Parse("#FF0000");
-                }
-                else
-                {
-                    // Fallback to legacy entity colors
-                    if (!SKColor.TryParse(entitySettings.VisibleColor, out visibleColor))
-                        visibleColor = SKColor.Parse("#00FF00");
-
-                    if (!SKColor.TryParse(entitySettings.InvisibleColor, out invisibleColor))
-                        invisibleColor = SKColor.Parse("#FF0000");
-                }
-
-                var visibleUnityColor = new UnityColor(visibleColor.Red, visibleColor.Green, visibleColor.Blue, visibleColor.Alpha);
-                var invisibleUnityColor = new UnityColor(invisibleColor.Red, invisibleColor.Green, invisibleColor.Blue, invisibleColor.Alpha);
-
-                using var chamsColorMem = new RemoteBytes(SizeChecker<UnityColor>.Size);
-                if (ApplyColorsToMaterial(chamsColorMem, material, visibleUnityColor, invisibleUnityColor))
-                {
-                    LoneLogging.WriteLine($"[Loot Chams] Applied material-specific colors to {itemId}: Mode={mode}, Visible={materialColorSettings?.VisibleColor ?? entitySettings.VisibleColor}, Invisible={materialColorSettings?.InvisibleColor ?? entitySettings.InvisibleColor}");
-                }
-            }
-            catch (Exception ex)
-            {
-                LoneLogging.WriteLine($"[Loot Chams] Failed to apply colors to {itemId}: {ex.Message}");
-            }
-        }
-
         private static (ChamsEntityType?, ChamsConfig.EntityChamsSettings) DetermineEntityTypeAndSettings(ChamsMode mode)
         {
             var importantSettings = ChamsConfig.GetEntitySettings(ChamsEntityType.ImportantItem);
@@ -614,7 +552,7 @@ namespace eft_dma_radar.Tarkov.Features
             return (null, null);
         }
 
-        private static bool ApplyColorsToMaterial(RemoteBytes chamsColorMem, ChamsManager.ChamsMaterial material, UnityColor visibleColor, UnityColor invisibleColor)
+        private static bool ApplyColorsToMaterial(RemoteBytes chamsColorMem, ChamsMaterial material, UnityColor visibleColor, UnityColor invisibleColor)
         {
             try
             {

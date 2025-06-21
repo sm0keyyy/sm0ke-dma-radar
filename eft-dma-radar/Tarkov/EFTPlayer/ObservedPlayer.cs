@@ -436,7 +436,7 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
             }
             catch (Exception ex)
             {
-                LoneLogging.WriteLine($"ERROR updating Health Status for '{Name}': {ex}");
+                LoneLogging.WriteLine($"ERROR updating Aiming Status for '{Name}': {ex}");
             }
         }
 

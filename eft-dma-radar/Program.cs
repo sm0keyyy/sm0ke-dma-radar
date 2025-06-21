@@ -13,44 +13,40 @@ global using System.Data;
 global using System.Diagnostics;
 global using System.Net;
 global using System.Net.Http.Headers;
-global using System.Net.Security;
 global using System.Numerics;
 global using System.Reflection;
 global using System.Runtime.CompilerServices;
 global using System.Runtime.InteropServices;
-global using System.Security.Cryptography;
-global using System.Security.Cryptography.X509Certificates;
 global using System.Text;
 global using System.Text.Json;
 global using System.Text.Json.Serialization;
-global using SKSvg = Svg.Skia.SKSvg;
 using eft_dma_radar;
 using eft_dma_radar.Tarkov;
-using eft_dma_radar.Tarkov.EFTPlayer;
 using eft_dma_radar.Tarkov.Features;
 using eft_dma_radar.Tarkov.Features.MemoryWrites.Patches;
-using eft_dma_radar.Tarkov.GameWorld;
-using eft_dma_radar.Tarkov.GameWorld.Exits;
-using eft_dma_radar.Tarkov.GameWorld.Explosives;
-using eft_dma_radar.Tarkov.Loot;
 using eft_dma_radar.UI.ESP;
 using eft_dma_radar.UI.Misc;
-using eft_dma_shared.Common.DMA.ScatterAPI;
 using eft_dma_shared.Common.Features;
 using eft_dma_shared.Common.Maps;
 using eft_dma_shared.Common.Misc;
 using eft_dma_shared.Common.Misc.Data;
 using eft_dma_shared.Common.UI;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.Versioning;
+using System.Text.Json.Nodes;
 using System.Windows;
-using Vmmsharp;
 using Application = System.Windows.Forms.Application;
 using MessageBox = HandyControl.Controls.MessageBox;
 
 [assembly: AssemblyTitle(Program.Name)]
 [assembly: AssemblyProduct(Program.Name)]
 [assembly: AssemblyCopyright("BSD Zero Clause License ©2025 lone-dma")]
+[assembly: AssemblyDescription("Advanced DMA radar for Escape from Tarkov")]
+[assembly: AssemblyCompany("lone-dma")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
 [assembly: SupportedOSPlatform("Windows")]
 
 namespace eft_dma_radar
@@ -58,7 +54,7 @@ namespace eft_dma_radar
     internal static class Program
     {
         internal const string Name = "EFT DMA Radar";
-        internal const string Version = "1.1.3";
+        internal const string Version = "1.2.0";
 
         /// <summary>
         /// Current application mode
@@ -74,6 +70,23 @@ namespace eft_dma_radar
         /// Path to the Configuration Folder in %AppData%
         /// </summary>
         public static DirectoryInfo ConfigPath { get; } = new(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "eft-dma-radar"));
+
+        /// <summary>
+        /// Detailed version information from assembly
+        /// </summary>
+        public static class VersionInfo
+        {
+            private static readonly Assembly Assembly = Assembly.GetExecutingAssembly();
+
+            public static Version AssemblyVersion => Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
+            public static string FileVersion => Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version ?? "0.0.0.0";
+            public static string InformationalVersion => Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+            public static string ProductVersion => InformationalVersion;
+            public static string SimpleVersion => AssemblyVersion.ToString(3);
+            public static string Company => Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "";
+            public static string Product => Assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? Name;
+            public static string Copyright => Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "";
+        }
 
         /// <summary>
         /// Update the global configuration reference (used for config imports)
@@ -147,7 +160,110 @@ namespace eft_dma_radar
             mainWindow.InitializeComponent();
             mainWindow.Show();
             mainWindow.Activate();
+
+            _ = Task.Run(async () => await CheckForUpdatesAsync(mainWindow));
+
             app.Run();
+        }
+
+        /// <summary>
+        /// Check for application updates
+        /// </summary>
+        /// <param name="mainWindow">Main window reference for UI updates</param>
+        private static async Task CheckForUpdatesAsync(MainWindow mainWindow)
+        {
+            try
+            {
+                await Task.Delay(2000);
+
+                var result = await GitHubVersionChecker.CheckForUpdatesAsync(5000);
+
+                if (result.IsSuccess && result.IsOutdated)
+                {
+                    mainWindow.Dispatcher.Invoke(() =>
+                    {
+                        ShowUpdateNotification(result);
+                    });
+                }
+                else if (!result.IsSuccess)
+                {
+                    LoneLogging.WriteLine($"[Program] Version check failed: {result.Error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LoneLogging.WriteLine($"[Program] Error during version check: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Show update notification to the user
+        /// </summary>
+        /// <param name="versionResult">Version check result</param>
+        private static void ShowUpdateNotification(VersionCheckResult versionResult)
+        {
+            try
+            {
+                var message = $"A new version of {Name} is available!\n\n" +
+                             $"Current Version: {versionResult.CurrentVersion}\n" +
+                             $"Latest Version: {versionResult.LatestVersion}\n";
+
+                if (!string.IsNullOrEmpty(versionResult.ReleaseNotes))
+                {
+                    var notes = versionResult.ReleaseNotes.Length > 200
+                        ? versionResult.ReleaseNotes.Substring(0, 200) + "..."
+                        : versionResult.ReleaseNotes;
+                    message += $"\nWhat's New:\n{notes}\n";
+                }
+
+                message += "\nWould you like to visit the release page to download the update?";
+
+                var result = MessageBox.Show(
+                    message,
+                    "Update Available",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        var url = !string.IsNullOrEmpty(versionResult.ReleaseUrl)
+                            ? versionResult.ReleaseUrl
+                            : "https://github.com/lone-dma/eft-dma-radar/releases";
+
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = url,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        LoneLogging.WriteLine($"[Program] Failed to open browser: {ex.Message}");
+
+                        try
+                        {
+                            var url = !string.IsNullOrEmpty(versionResult.ReleaseUrl)
+                                ? versionResult.ReleaseUrl
+                                : "https://github.com/lone-dma/eft-dma-radar/releases";
+
+                            System.Windows.Clipboard.SetText(url);
+                            MessageBox.Show($"URL copied to clipboard:\n{url}",
+                                          "URL Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                        }
+                        catch
+                        {
+                            MessageBox.Show("Please visit: https://github.com/lone-dma/eft-dma-radar/releases",
+                                          "Manual Update", MessageBoxButton.OK, MessageBoxImage.Information);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoneLogging.WriteLine($"[Program] Error showing update notification: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -292,8 +408,7 @@ namespace eft_dma_radar
             string iconCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "eft-dma-radar", "Assets", "Icons", "Items");
 
             Directory.CreateDirectory(iconCachePath);
-            
-            // Cache item icons
+
             Parallel.ForEach(EftDataManager.AllItems.Keys, itemId =>
             {
                 try
@@ -302,7 +417,7 @@ namespace eft_dma_radar
                     if (File.Exists(pngPath) && new FileInfo(pngPath).Length > 1024) return;
 
                     LoneLogging.WriteLine($"[IconCache] Caching item icon: {itemId}");
-                    eft_dma_radar.Converters.ItemIconConverter.SaveItemIconAsPng(itemId, iconCachePath).Wait();
+                    Converters.ItemIconConverter.SaveItemIconAsPng(itemId, iconCachePath).Wait();
                 }
                 catch (Exception ex)
                 {
@@ -342,6 +457,303 @@ namespace eft_dma_radar
                     LoneLogging.WriteLine("[DPI] Warning: Could not enable DPI awareness");
                 }
             }
+        }
+
+        #endregion
+
+        #region GitHub Version Checker
+
+        /// <summary>
+        /// Enhanced version checker using GitHub Releases API
+        /// </summary>
+        private static class GitHubVersionChecker
+        {
+            private const string GITHUB_API_URL = "https://api.github.com/repos/lone-dma/eft-dma-radar/releases/latest";
+
+            private static readonly HttpClient _httpClient = new HttpClient();
+            private static DateTime _lastCheck = DateTime.MinValue;
+            private static VersionCheckResult _cachedResult = null;
+            private static readonly TimeSpan CacheTimeout = TimeSpan.FromMinutes(10);
+
+            static GitHubVersionChecker()
+            {
+                _httpClient.DefaultRequestHeaders.Add("User-Agent", $"{Program.Name}/{GetCurrentVersionString()}");
+                _httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+                _httpClient.Timeout = TimeSpan.FromSeconds(10);
+            }
+
+            /// <summary>
+            /// Get current version string
+            /// </summary>
+            private static string GetCurrentVersionString()
+            {
+                return Program.Version;
+            }
+
+            /// <summary>
+            /// Check for updates using GitHub Releases API
+            /// </summary>
+            public static async Task<VersionCheckResult> CheckForUpdatesAsync(int timeoutMs = 5000)
+            {
+                if (_cachedResult != null && DateTime.Now - _lastCheck < CacheTimeout)
+                {
+                    LoneLogging.WriteLine("[VersionChecker] Using cached result");
+                    return _cachedResult;
+                }
+
+                using var cts = new CancellationTokenSource(timeoutMs);
+                try
+                {
+                    var result = await CheckForUpdatesInternalAsync(cts.Token);
+
+                    if (result.IsSuccess)
+                    {
+                        _cachedResult = result;
+                        _lastCheck = DateTime.Now;
+                    }
+
+                    return result;
+                }
+                catch (OperationCanceledException)
+                {
+                    return new VersionCheckResult
+                    {
+                        IsOutdated = false,
+                        Error = "Version check timed out",
+                        CurrentVersion = GetCurrentVersionString()
+                    };
+                }
+            }
+
+            /// <summary>
+            /// Internal version checking using GitHub Releases API
+            /// </summary>
+            private static async Task<VersionCheckResult> CheckForUpdatesInternalAsync(CancellationToken cancellationToken)
+            {
+                try
+                {
+                    LoneLogging.WriteLine("[VersionChecker] Checking for updates via GitHub Releases API...");
+
+                    var latestRelease = await GetLatestReleaseAsync(cancellationToken);
+                    if (latestRelease == null)
+                    {
+                        return new VersionCheckResult
+                        {
+                            IsOutdated = false,
+                            Error = "Could not retrieve latest release from GitHub",
+                            CurrentVersion = GetCurrentVersionString()
+                        };
+                    }
+
+                    if (!TryParseVersion(GetCurrentVersionString(), out var currentVersion) ||
+                        !TryParseVersion(latestRelease.TagName, out var latestVersion))
+                    {
+                        return new VersionCheckResult
+                        {
+                            IsOutdated = false,
+                            Error = "Could not parse version numbers",
+                            CurrentVersion = GetCurrentVersionString(),
+                            LatestVersion = latestRelease.TagName
+                        };
+                    }
+
+                    var isOutdated = currentVersion < latestVersion;
+
+                    LoneLogging.WriteLine($"[VersionChecker] Current: {GetCurrentVersionString()}, Latest: {latestRelease.TagName}, Outdated: {isOutdated}");
+
+                    return new VersionCheckResult
+                    {
+                        IsOutdated = isOutdated,
+                        CurrentVersion = GetCurrentVersionString(),
+                        LatestVersion = latestRelease.TagName,
+                        ReleaseUrl = latestRelease.HtmlUrl,
+                        ReleaseNotes = latestRelease.Body,
+                        Error = null
+                    };
+                }
+                catch (Exception ex)
+                {
+                    LoneLogging.WriteLine($"[VersionChecker] Error checking version: {ex.Message}");
+                    return new VersionCheckResult
+                    {
+                        IsOutdated = false,
+                        Error = ex.Message,
+                        CurrentVersion = GetCurrentVersionString()
+                    };
+                }
+            }
+
+            /// <summary>
+            /// Get latest release information from GitHub API
+            /// </summary>
+            private static async Task<GitHubRelease> GetLatestReleaseAsync(CancellationToken cancellationToken)
+            {
+                try
+                {
+                    var response = await _httpClient.GetStringAsync(GITHUB_API_URL, cancellationToken);
+                    var json = JsonNode.Parse(response);
+                    var tagName = json?["tag_name"]?.ToString();
+                    var name = json?["name"]?.ToString();
+                    var htmlUrl = json?["html_url"]?.ToString();
+                    var body = json?["body"]?.ToString();
+                    var isDraft = json?["draft"]?.GetValue<bool>() ?? false;
+                    var isPrerelease = json?["prerelease"]?.GetValue<bool>() ?? false;
+
+                    if (string.IsNullOrEmpty(tagName))
+                    {
+                        LoneLogging.WriteLine("[VersionChecker] No tag_name found in GitHub API response");
+                        return null;
+                    }
+
+                    if (isDraft)
+                    {
+                        LoneLogging.WriteLine("[VersionChecker] Latest release is a draft, skipping");
+                        return null;
+                    }
+
+                    return new GitHubRelease
+                    {
+                        TagName = CleanVersionString(tagName),
+                        Name = name ?? tagName,
+                        HtmlUrl = htmlUrl ?? "",
+                        Body = body ?? "",
+                        IsPrerelease = isPrerelease
+                    };
+                }
+                catch (HttpRequestException ex)
+                {
+                    LoneLogging.WriteLine($"[VersionChecker] HTTP error: {ex.Message}");
+                    return null;
+                }
+                catch (JsonException ex)
+                {
+                    LoneLogging.WriteLine($"[VersionChecker] JSON parsing error: {ex.Message}");
+                    return null;
+                }
+                catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    LoneLogging.WriteLine("[VersionChecker] Request was cancelled");
+                    return null;
+                }
+            }
+
+            /// <summary>
+            /// Clean version string by removing common prefixes like 'v'
+            /// </summary>
+            private static string CleanVersionString(string version)
+            {
+                if (string.IsNullOrWhiteSpace(version))
+                    return version;
+
+                version = version.Trim();
+                if (version.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+                    version = version.Substring(1);
+
+                return version;
+            }
+
+            /// <summary>
+            /// Robust version parsing that handles various formats
+            /// </summary>
+            private static bool TryParseVersion(string versionString, out Version version)
+            {
+                version = null;
+
+                if (string.IsNullOrWhiteSpace(versionString))
+                    return false;
+
+                var cleanVersion = CleanVersionString(versionString);
+
+                try
+                {
+                    version = new Version(cleanVersion);
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    var parts = cleanVersion.Split('-')[0].Split('.');
+                    if (parts.Length >= 2)
+                    {
+                        try
+                        {
+                            var major = int.Parse(parts[0]);
+                            var minor = int.Parse(parts[1]);
+                            var build = parts.Length > 2 ? int.Parse(parts[2]) : 0;
+                            var revision = parts.Length > 3 ? int.Parse(parts[3]) : 0;
+
+                            version = new Version(major, minor, build, revision);
+                            return true;
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+
+                return false;
+            }
+
+            /// <summary>
+            /// Clear cache for manual refresh
+            /// </summary>
+            public static void ClearCache()
+            {
+                _cachedResult = null;
+                _lastCheck = DateTime.MinValue;
+                LoneLogging.WriteLine("[VersionChecker] Version check cache cleared");
+            }
+
+            /// <summary>
+            /// GitHub release information
+            /// </summary>
+            private class GitHubRelease
+            {
+                public string TagName { get; set; }
+                public string Name { get; set; }
+                public string HtmlUrl { get; set; }
+                public string Body { get; set; }
+                public bool IsPrerelease { get; set; }
+            }
+        }
+
+        /// <summary>
+        /// Enhanced version check result with release information
+        /// </summary>
+        private class VersionCheckResult
+        {
+            /// <summary>
+            /// Whether the current version is outdated
+            /// </summary>
+            public bool IsOutdated { get; set; }
+
+            /// <summary>
+            /// Current application version
+            /// </summary>
+            public string CurrentVersion { get; set; }
+
+            /// <summary>
+            /// Latest version available on GitHub
+            /// </summary>
+            public string LatestVersion { get; set; }
+
+            /// <summary>
+            /// URL to the release page
+            /// </summary>
+            public string ReleaseUrl { get; set; }
+
+            /// <summary>
+            /// Release notes/description
+            /// </summary>
+            public string ReleaseNotes { get; set; }
+
+            /// <summary>
+            /// Error message if version check failed
+            /// </summary>
+            public string Error { get; set; }
+
+            /// <summary>
+            /// Whether the version check was successful
+            /// </summary>
+            public bool IsSuccess => string.IsNullOrEmpty(Error);
         }
 
         #endregion

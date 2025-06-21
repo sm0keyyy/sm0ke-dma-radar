@@ -11,6 +11,8 @@ using eft_dma_shared.Common.Misc.Config;
 using eft_dma_shared.Common.UI.Controls;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.LowLevel;
+using eft_dma_shared.Common.Unity.LowLevel.Chams;
+using eft_dma_shared.Common.Unity.LowLevel.Chams.EFT;
 using eft_dma_shared.Common.Unity.LowLevel.Hooks;
 using eft_dma_shared.Common.Unity.LowLevel.Types;
 using HandyControl.Controls;
@@ -26,7 +28,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using static eft_dma_radar.Tarkov.EFTPlayer.Player;
-using static eft_dma_shared.Common.Unity.LowLevel.ChamsManager;
 using static SDK.Offsets;
 using Button = System.Windows.Controls.Button;
 using CheckBox = System.Windows.Controls.CheckBox;
@@ -63,7 +64,7 @@ namespace eft_dma_radar.UI.Pages
         private bool _isRefreshingChamsMaterials = false;
         private DispatcherTimer _chamsMaterialStatusTimer;
         private ChamsMode _selectedColorMaterialType = ChamsMode.WireFrame;
-        private ChamsManager.ChamsEntityType _selectedEntityType = ChamsManager.ChamsEntityType.PMC;
+        private ChamsEntityType _selectedEntityType = ChamsEntityType.PMC;
         private static readonly Dictionary<string, ChamsMode> _materialTypeMapping = new()
         {
             { "Basic", ChamsMode.Basic },
@@ -328,7 +329,7 @@ namespace eft_dma_radar.UI.Pages
         {
             if (cboChamsEntityType.SelectedItem is ComboBoxItem item &&
                 item.Tag is string tag &&
-                Enum.TryParse<ChamsManager.ChamsEntityType>(tag, out var type))
+                Enum.TryParse<ChamsEntityType>(tag, out var type))
             {
                 _selectedEntityType = type;
             }
@@ -364,7 +365,7 @@ namespace eft_dma_radar.UI.Pages
 
         private void UpdateVisibilityGroups()
         {
-            bool isPlayer = IsPlayerEntityType();
+            var isPlayer = IsPlayerEntityType();
             playerEntityGroup.Visibility = isPlayer ? Visibility.Visible : Visibility.Collapsed;
             materialGroup.Visibility = isPlayer ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -428,19 +429,34 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleChamsControls()
         {
             var memWrites = MemWrites.Enabled;
+            var advMemWrites = MemWrites.Config.AdvancedMemWrites;
             var controlEnabled = memWrites && Config.ChamsConfig.Enabled;
 
             chkEnableChams.IsEnabled = memWrites;
             chkEntityEnabled.IsEnabled = controlEnabled;
             cboChamsEntityType.IsEnabled = controlEnabled;
 
-            btnRefreshChamsMaterials.IsEnabled = controlEnabled && !_isRefreshingChamsMaterials;
-            btnClearChamsCache.IsEnabled = controlEnabled && !_isRefreshingChamsMaterials;
+            btnRefreshChamsMaterials.IsEnabled = controlEnabled && advMemWrites && !_isRefreshingChamsMaterials;
+            btnClearChamsCache.IsEnabled = controlEnabled && advMemWrites && !_isRefreshingChamsMaterials;
+
+            ToggleChamsColorControls();
+        }
+
+        private void ToggleChamsColorControls()
+        {
+            var entityEnabled = chkEntityEnabled.IsChecked == true;
+            var baseEnabled = MemWrites.Enabled && MemWrites.Config.AdvancedMemWrites && Config.ChamsConfig.Enabled;
+            var finalEnabled = baseEnabled && entityEnabled;
+
+            cboColorMaterialType.IsEnabled = finalEnabled;
+            btnChamsVisibleColor.IsEnabled = finalEnabled;
+            btnChamsInvisibleColor.IsEnabled = finalEnabled;
         }
 
         private void ToggleEntityChamsControls()
         {
             var entityEnabled = chkEntityEnabled.IsChecked == true;
+            var advWrites = MemWrites.Config.AdvancedMemWrites;
             var baseEnabled = MemWrites.Enabled && Config.ChamsConfig.Enabled;
             var finalEnabled = baseEnabled && entityEnabled;
 
@@ -455,8 +471,9 @@ namespace eft_dma_radar.UI.Pages
                 cboMaterialType.IsEnabled = finalEnabled;
             }
 
-            btnChamsVisibleColor.IsEnabled = finalEnabled;
-            btnChamsInvisibleColor.IsEnabled = finalEnabled;
+            cboColorMaterialType.IsEnabled = advWrites && finalEnabled;
+            btnChamsVisibleColor.IsEnabled = advWrites && finalEnabled;
+            btnChamsInvisibleColor.IsEnabled = advWrites && finalEnabled;
         }
 
         private void TogglePlayerControls(bool baseEnabled)
@@ -886,7 +903,7 @@ namespace eft_dma_radar.UI.Pages
             }
         }
 
-        private void UpdateMaterialStatusDisplay(ChamsManager.ChamsMaterialStatus status)
+        private void UpdateMaterialStatusDisplay(ChamsMaterialStatus status)
         {
             txtChamsMaterialCount.Text = $"{status.LoadedCount}/{status.ExpectedCount} loaded";
 
@@ -900,12 +917,13 @@ namespace eft_dma_radar.UI.Pages
             txtChamsMaterialStatus.Foreground = new SolidColorBrush(statusColor);
         }
 
-        private void UpdateMaterialManagementButtons(ChamsManager.ChamsMaterialStatus status)
+        private void UpdateMaterialManagementButtons(ChamsMaterialStatus status)
         {
+            var advWrites = MemWrites.Config.AdvancedMemWrites;
             var controlEnabled = MemWrites.Enabled && Config.ChamsConfig.Enabled;
 
-            btnRefreshChamsMaterials.IsEnabled = controlEnabled && !_isRefreshingChamsMaterials;
-            btnClearChamsCache.IsEnabled = controlEnabled && !_isRefreshingChamsMaterials;
+            btnRefreshChamsMaterials.IsEnabled = controlEnabled && advWrites && !_isRefreshingChamsMaterials;
+            btnClearChamsCache.IsEnabled = controlEnabled && advWrites && !_isRefreshingChamsMaterials;
 
             var tooltip = status.MissingCombos.Any()
                 ? $"Refresh failed materials. Missing: {string.Join(", ", status.MissingCombos.Take(3).Select(x => $"{x.Item1}-{x.Item2}"))}"
@@ -1488,20 +1506,20 @@ namespace eft_dma_radar.UI.Pages
                         item.IsSelected = true;
                     else
                         item.IsSelected = false;
+                }
 
-                    switch (entityType)
-                    {
-                        case "Door":
-                            chkShowLockedDoors.IsChecked = settings.ShowLockedDoors;
-                            chkShowUnlockedDoors.IsChecked = settings.ShowUnlockedDoors;
-                            break;
-                        case "Tripwire":
-                            chkShowTripwireLine.IsChecked = settings.ShowTripwireLine;
-                            break;
-                        case "Grenade":
-                            chkShowGrenadeRadius.IsChecked = settings.ShowRadius;
-                            break;
-                    }
+                switch (entityType)
+                {
+                    case "Door":
+                        chkShowLockedDoors.IsChecked = settings.ShowLockedDoors;
+                        chkShowUnlockedDoors.IsChecked = settings.ShowUnlockedDoors;
+                        break;
+                    case "Tripwire":
+                        chkShowTripwireLine.IsChecked = settings.ShowTripwireLine;
+                        break;
+                    case "Grenade":
+                        chkShowGrenadeRadius.IsChecked = settings.ShowRadius;
+                        break;
                 }
 
                 foreach (ComboBoxItem item in cboEntityRenderMode.Items)
@@ -1516,6 +1534,23 @@ namespace eft_dma_radar.UI.Pages
             finally
             {
                 _isLoadingFuserEntitySettings = false;
+            }
+
+            doorSettings.Visibility = Visibility.Collapsed;
+            tripwireSettings.Visibility = Visibility.Collapsed;
+            grenadeSettings.Visibility = Visibility.Collapsed;
+
+            switch (_currentFuserEntityType)
+            {
+                case "Door":
+                    doorSettings.Visibility = Visibility.Visible;
+                    break;
+                case "Tripwire":
+                    tripwireSettings.Visibility = Visibility.Visible;
+                    break;
+                case "Grenade":
+                    grenadeSettings.Visibility = Visibility.Visible;
+                    break;
             }
         }
 
@@ -1921,23 +1956,6 @@ namespace eft_dma_radar.UI.Pages
         private void espEntityInfoCheckComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             SaveEntityTypeSettings();
-
-            doorSettings.Visibility = Visibility.Collapsed;
-            tripwireSettings.Visibility = Visibility.Collapsed;
-            grenadeSettings.Visibility = Visibility.Collapsed;
-
-            switch (_currentFuserEntityType)
-            {
-                case "Door":
-                    doorSettings.Visibility = Visibility.Visible;
-                    break;
-                case "Tripwire":
-                    tripwireSettings.Visibility = Visibility.Visible;
-                    break;
-                case "Grenade":
-                    grenadeSettings.Visibility = Visibility.Visible;
-                    break;
-            }
         }
 
         private void espOptionsCheckComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

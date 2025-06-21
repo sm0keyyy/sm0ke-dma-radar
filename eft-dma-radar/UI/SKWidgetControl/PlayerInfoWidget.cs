@@ -145,7 +145,7 @@ namespace eft_dma_radar.UI.SKWidgetControl
 
             var name = Config.MaskNames && player.IsHuman ? "<Hidden>" : player.Name;
             var faction = player.PlayerSide.GetDescription()[0];
-            var hands = player.Hands?.CurrentItem;
+            var hands = $"{player.Hands?.CurrentItem}/{player.Hands?.CurrentAmmo}";
             var inHands = hands is not null ? hands : "--";
 
             string edition = "--";
