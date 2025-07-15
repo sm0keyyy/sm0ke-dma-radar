@@ -16,19 +16,19 @@ using System.Runtime.CompilerServices;
 
 namespace arena_dma_radar.UI.SKWidgetControl
 {
-    public sealed class EspWidget : SKWidget
+    public sealed class AimviewWidget : SKWidget
     {
-        private SKBitmap _espBitmap;
-        private SKCanvas _espCanvas;
+        private SKBitmap _aimviewBitmap;
+        private SKCanvas _aimviewCanvas;
         private readonly float _textOffsetY;
         private readonly float _boxHalfSize;
         private static Config Config => Program.Config;
 
-        public EspWidget(SKGLElement parent, SKRect location, bool minimized, float scale)
+        public AimviewWidget(SKGLElement parent, SKRect location, bool minimized, float scale)
             : base(parent, "ESP", new SKPoint(location.Left, location.Top), new SKSize(location.Width, location.Height), scale)
         {
-            _espBitmap = new SKBitmap((int)location.Width, (int)location.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
-            _espCanvas = new SKCanvas(_espBitmap);
+            _aimviewBitmap = new SKBitmap((int)location.Width, (int)location.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+            _aimviewCanvas = new SKCanvas(_aimviewBitmap);
             _textOffsetY = 12.5f * scale;
             _boxHalfSize = 4f * scale;
             Minimized = minimized;
@@ -53,7 +53,7 @@ namespace arena_dma_radar.UI.SKWidgetControl
         {
             EnsureBitmapSize();
 
-            _espCanvas.Clear(SKColors.Transparent);
+            _aimviewCanvas.Clear(SKColors.Transparent);
 
             try
             {
@@ -74,23 +74,23 @@ namespace arena_dma_radar.UI.SKWidgetControl
                 LoneLogging.WriteLine($"CRITICAL ESP WIDGET RENDER ERROR: {ex}");
             }
 
-            _espCanvas.Flush();
-            parent.DrawBitmap(_espBitmap, dest, SharedPaints.PaintBitmap);
+            _aimviewCanvas.Flush();
+            parent.DrawBitmap(_aimviewBitmap, dest, SharedPaints.PaintBitmap);
         }
 
         private void EnsureBitmapSize()
         {
             var size = Size;
-            if (_espBitmap == null || _espCanvas == null ||
-                _espBitmap.Width != size.Width || _espBitmap.Height != size.Height)
+            if (_aimviewBitmap == null || _aimviewCanvas == null ||
+                _aimviewBitmap.Width != size.Width || _aimviewBitmap.Height != size.Height)
             {
-                _espCanvas?.Dispose();
-                _espCanvas = null;
-                _espBitmap?.Dispose();
-                _espBitmap = null;
+                _aimviewCanvas?.Dispose();
+                _aimviewCanvas = null;
+                _aimviewBitmap?.Dispose();
+                _aimviewBitmap = null;
 
-                _espBitmap = new SKBitmap((int)size.Width, (int)size.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
-                _espCanvas = new SKCanvas(_espBitmap);
+                _aimviewBitmap = new SKBitmap((int)size.Width, (int)size.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+                _aimviewCanvas = new SKCanvas(_aimviewBitmap);
             }
         }
 
@@ -117,9 +117,9 @@ namespace arena_dma_radar.UI.SKWidgetControl
 
                 var paints = GetPaints(item);
 
-                _espCanvas.DrawRect(boxPt, paints.Item1);
+                _aimviewCanvas.DrawRect(boxPt, paints.Item1);
                 var label = item.GetUILabel() + $" ({dist:n1}m)";
-                _espCanvas.DrawText(label, textPt, paints.Item2);
+                _aimviewCanvas.DrawText(label, textPt, paints.Item2);
             }
         }
 
@@ -146,9 +146,9 @@ namespace arena_dma_radar.UI.SKWidgetControl
 
                 var textPt = new SKPoint(adjPos.X, adjPos.Y + _textOffsetY);
 
-                _espCanvas.DrawRect(boxPt, PaintESPWidgetContainers);
+                _aimviewCanvas.DrawRect(boxPt, PaintESPWidgetContainers);
                 var label = $"{container.Name} ({dist:n1}m)";
-                _espCanvas.DrawText(label, textPt, TextESPWidgetContainers);
+                _aimviewCanvas.DrawText(label, textPt, TextESPWidgetContainers);
             }
         }
 
@@ -174,9 +174,9 @@ namespace arena_dma_radar.UI.SKWidgetControl
 
                 var textPt = new SKPoint(adjPos.X, adjPos.Y + _textOffsetY);
 
-                _espCanvas.DrawRect(boxPt, PaintESPWidgetRefillContainers);
+                _aimviewCanvas.DrawRect(boxPt, PaintESPWidgetRefillContainers);
                 var label = $"Refill Container ({dist:n1}m)";
-                _espCanvas.DrawText(label, textPt, TextESPWidgetRefillContainers);
+                _aimviewCanvas.DrawText(label, textPt, TextESPWidgetRefillContainers);
             }
         }
 
@@ -187,31 +187,31 @@ namespace arena_dma_radar.UI.SKWidgetControl
 
             if (allPlayers == null) return;
 
-            var scaleX = _espBitmap.Width / (float)CameraManagerBase.Viewport.Width;
-            var scaleY = _espBitmap.Height / (float)CameraManagerBase.Viewport.Height;
+            var scaleX = _aimviewBitmap.Width / (float)CameraManagerBase.Viewport.Width;
+            var scaleY = _aimviewBitmap.Height / (float)CameraManagerBase.Viewport.Height;
 
             foreach (var player in allPlayers)
             {
                 if (player.Skeleton.UpdateESPWidgetBuffer(scaleX, scaleY))
-                    _espCanvas.DrawPoints(SKPointMode.Lines, Skeleton.ESPWidgetBuffer, GetPlayerPaint(player));
+                    _aimviewCanvas.DrawPoints(SKPointMode.Lines, Skeleton.ESPWidgetBuffer, GetPlayerPaint(player));
             }
         }
 
         private void DrawCrosshair()
         {
-            var bounds = _espBitmap.Info.Rect;
+            var bounds = _aimviewBitmap.Info.Rect;
             float centerX = bounds.Left + bounds.Width / 2;
             float centerY = bounds.Top + bounds.Height / 2;
 
-            _espCanvas.DrawLine(bounds.Left, centerY, bounds.Right, centerY, PaintESPWidgetCrosshair);
-            _espCanvas.DrawLine(centerX, bounds.Top, centerX, bounds.Bottom, PaintESPWidgetCrosshair);
+            _aimviewCanvas.DrawLine(bounds.Left, centerY, bounds.Right, centerY, PaintESPWidgetCrosshair);
+            _aimviewCanvas.DrawLine(centerX, bounds.Top, centerX, bounds.Bottom, PaintESPWidgetCrosshair);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private SKPoint ScaleESPPoint(SKPoint original)
         {
-            var scaleX = _espBitmap.Width / (float)CameraManagerBase.Viewport.Width;
-            var scaleY = _espBitmap.Height / (float)CameraManagerBase.Viewport.Height;
+            var scaleX = _aimviewBitmap.Width / (float)CameraManagerBase.Viewport.Width;
+            var scaleY = _aimviewBitmap.Height / (float)CameraManagerBase.Viewport.Height;
 
             return new SKPoint(original.X * scaleX, original.Y * scaleY);
         }
@@ -298,10 +298,10 @@ namespace arena_dma_radar.UI.SKWidgetControl
 
         public override void Dispose()
         {
-            _espBitmap?.Dispose();
-            _espCanvas?.Dispose();
-            _espBitmap = null;
-            _espCanvas = null;
+            _aimviewBitmap?.Dispose();
+            _aimviewCanvas?.Dispose();
+            _aimviewBitmap = null;
+            _aimviewCanvas = null;
             base.Dispose();
         }
 

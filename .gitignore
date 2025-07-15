@@ -11,3 +11,4 @@ arena-dma-radar/arena-dma-radar.csproj.user
 /.vs
 *.tmp
 /eft-dma-radar/.vs
+eft-dma-radar/Properties/PublishProfiles/FolderProfile.pubxml.user

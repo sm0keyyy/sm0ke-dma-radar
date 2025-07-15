@@ -48,6 +48,7 @@ namespace eft_dma_shared.Common.Misc.Data.EFT
     {
         #region Loot
         [JsonPropertyName("showLoot")] public HotkeyEntry ShowLoot { get; set; } = new();
+        [JsonPropertyName("showWishlistLoot")] public HotkeyEntry ShowWishlistLoot { get; set; } = new();
         [JsonPropertyName("showMeds")] public HotkeyEntry ShowMeds { get; set; } = new();
         [JsonPropertyName("showFood")] public HotkeyEntry ShowFood { get; set; } = new();
         [JsonPropertyName("showBackpacks")] public HotkeyEntry ShowBackpacks { get; set; } = new();
@@ -56,6 +57,9 @@ namespace eft_dma_shared.Common.Misc.Data.EFT
 
         #region Fuser ESP
         [JsonPropertyName("fuserESP")] public HotkeyEntry ToggleFuserESP { get; set; } = new();
+        [JsonPropertyName("miniRadarZoomIn")] public HotkeyEntry MiniRadarZoomIn { get; set; } = new();
+        [JsonPropertyName("miniRadarZoomOut")] public HotkeyEntry MiniRadarZoomOut { get; set; } = new();
+        [JsonPropertyName("fuserQuestInfoWidget")] public HotkeyEntry FuserQuestInfo { get; set; } = new();
         #endregion
 
         #region Memory Writes
@@ -94,6 +98,7 @@ namespace eft_dma_shared.Common.Misc.Data.EFT
         [JsonPropertyName("fullBright")] public HotkeyEntry FullBright { get; set; } = new();
         [JsonPropertyName("lootThroughWalls")] public HotkeyEntry LootThroughWalls { get; set; } = new();
         [JsonPropertyName("extendedReach")] public HotkeyEntry ExtendedReach { get; set; } = new();
+        [JsonPropertyName("engageLTW")] public HotkeyEntry EngageLTW { get; set; } = new();
 
         // Camera
         [JsonPropertyName("noVisor")] public HotkeyEntry NoVisor { get; set; } = new();
@@ -109,12 +114,14 @@ namespace eft_dma_shared.Common.Misc.Data.EFT
 
         #region General Settings
         // General Options
-        [JsonPropertyName("espWidget")] public HotkeyEntry ESPWidget { get; set; } = new();
+        [JsonPropertyName("aimviewWidget")] public HotkeyEntry AimviewWidget { get; set; } = new();
         [JsonPropertyName("debugWidget")] public HotkeyEntry DebugWidget { get; set; } = new();
         [JsonPropertyName("playerInfoWidget")] public HotkeyEntry PlayerInfoWidget { get; set; } = new();
         [JsonPropertyName("lootInfoWidget")] public HotkeyEntry LootInfoWidget { get; set; } = new();
+        [JsonPropertyName("questInfoWidget")] public HotkeyEntry QuestInfoWidget { get; set; } = new();
         [JsonPropertyName("connectGroups")] public HotkeyEntry ConnectGroups { get; set; } = new();
         [JsonPropertyName("maskNames")] public HotkeyEntry MaskNames { get; set; } = new();
+        [JsonPropertyName("playersOnTop")] public HotkeyEntry PlayersOnTop { get; set; } = new();
         [JsonPropertyName("zoomOut")] public HotkeyEntry ZoomOut { get; set; } = new();
         [JsonPropertyName("zoomIn")] public HotkeyEntry ZoomIn { get; set; } = new();
         [JsonPropertyName("battleMode")] public HotkeyEntry BattleMode { get; set; } = new();
@@ -141,6 +148,8 @@ namespace eft_dma_shared.Common.Misc.Data.Arena
 
         #region Fuser ESP
         [JsonPropertyName("fuserESP")] public HotkeyEntry ToggleFuserESP { get; set; } = new();
+        [JsonPropertyName("espRadarZoomIn")] public HotkeyEntry MiniRadarZoomIn { get; set; } = new();
+        [JsonPropertyName("espRadarZoomOut")] public HotkeyEntry MiniRadarZoomOut { get; set; } = new();
         #endregion
 
         #region Memory Writes
@@ -190,7 +199,7 @@ namespace eft_dma_shared.Common.Misc.Data.Arena
 
         #region General Settings
         // General Options
-        [JsonPropertyName("espWidget")] public HotkeyEntry ESPWidget { get; set; } = new();
+        [JsonPropertyName("aimviewWidget")] public HotkeyEntry AimviewWidget { get; set; } = new();
         [JsonPropertyName("debugWidget")] public HotkeyEntry DebugWidget { get; set; } = new();
         [JsonPropertyName("playerInfoWidget")] public HotkeyEntry PlayerInfoWidget { get; set; } = new();
         [JsonPropertyName("connectGroups")] public HotkeyEntry ConnectGroups { get; set; } = new();
