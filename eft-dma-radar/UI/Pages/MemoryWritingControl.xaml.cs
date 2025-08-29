@@ -256,7 +256,7 @@ namespace eft_dma_radar.UI.Pages
             chkLongJump.Checked += MemWritingCheckbox_Checked;
             chkLongJump.Unchecked += MemWritingCheckbox_Checked;
             btnLongJumpConfig.Click += MemWritingButton_Clicked;
-            sldrLongJumpMultiplier.ValueChanged += MemWritingSlider_ValueChanged;           
+            sldrLongJumpMultiplier.ValueChanged += MemWritingSlider_ValueChanged;
 
             // World
             chkTimeOfDay.Checked += MemWritingCheckbox_Checked;
@@ -321,10 +321,18 @@ namespace eft_dma_radar.UI.Pages
             chkMedPanel.Unchecked += MemWritingCheckbox_Checked;
             chkDisableInventoryBlur.Checked += MemWritingCheckbox_Checked;
             chkDisableInventoryBlur.Unchecked += MemWritingCheckbox_Checked;
+            chVisCheck.Checked += MemWritingCheckbox_Checked;
+            chVisCheck.Unchecked += MemWritingCheckbox_Checked;
             chkBigHeads.Checked += MemWritingCheckbox_Checked;
             chkBigHeads.Unchecked += MemWritingCheckbox_Checked;
             btnBigHeadsConfig.Click += MemWritingButton_Clicked;
+            btnVisCheckConfig.Click += MemWritingButton_Clicked;
             sldrBigHeadScale.ValueChanged += MemWritingSlider_ValueChanged;
+            chkIgnoreAi.Checked += MemWritingCheckbox_Checked;
+            chkIgnoreAi.Unchecked += MemWritingCheckbox_Checked;
+            sldrVisCheckLowDistance.ValueChanged += MemWritingSlider_ValueChanged;
+            sldrVisCheckMidDistance.ValueChanged += MemWritingSlider_ValueChanged;
+            sldrVisCheckFarDistance.ValueChanged += MemWritingSlider_ValueChanged;
         }
 
         private void LoadAllSettings()
@@ -397,6 +405,11 @@ namespace eft_dma_radar.UI.Pages
             chkInstantPlant.IsChecked = cfg.InstantPlant;
             chkMedPanel.IsChecked = cfg.MedPanel;
             chkDisableInventoryBlur.IsChecked = cfg.DisableInventoryBlur;
+            chVisCheck.IsChecked = cfg.VisCheck.Enabled;
+            sldrVisCheckFarDistance.Value = cfg.VisCheck.FarDist;
+            sldrVisCheckMidDistance.Value = cfg.VisCheck.MidDist;
+            sldrVisCheckLowDistance.Value = cfg.VisCheck.LowDist;
+            chkIgnoreAi.IsChecked = cfg.VisCheck.IgnoreAi;
             chkBigHeads.IsChecked = cfg.BigHead.Enabled;
             sldrBigHeadScale.Value = cfg.BigHead.Scale;
 
@@ -518,6 +531,7 @@ namespace eft_dma_radar.UI.Pages
             chkMedPanel.IsEnabled = memWritingEnabled;
             chkDisableInventoryBlur.IsEnabled = memWritingEnabled;
             ToggleBigHeadControls();
+            ToggleVisCheckControls();
 
             ToggleAdvMemWritingControls();
         }
@@ -618,6 +632,21 @@ namespace eft_dma_radar.UI.Pages
             if (!enableControl && pnlBigHeads.Visibility == Visibility.Visible)
                 pnlBigHeads.Visibility = Visibility.Collapsed;
         }
+        private void ToggleVisCheckControls()
+        {
+            var memWrites = MemWrites.Enabled;
+            var enableControl = memWrites && Config.MemWrites.VisCheck.Enabled;
+
+            chVisCheck.IsEnabled = memWrites;
+            btnVisCheckConfig.IsEnabled = enableControl;
+            sldrVisCheckLowDistance.IsEnabled = enableControl;
+            sldrVisCheckMidDistance.IsEnabled = enableControl;
+            sldrVisCheckFarDistance.IsEnabled = enableControl;
+            chkIgnoreAi.IsEnabled = enableControl;
+
+            if (!enableControl && pnlVisCheck.Visibility == Visibility.Visible)
+                pnlVisCheck.Visibility = Visibility.Collapsed;
+        }
 
         private void ToggleTimeOfDayControls()
         {
@@ -711,6 +740,7 @@ namespace eft_dma_radar.UI.Pages
             // Misc
             chkStreamerMode.IsEnabled = enabled;
             chkHideRaidCode.IsEnabled = enabled;
+            chVisCheck.IsEnabled = memWritingEnabled;
         }
 
         public void ToggleAimbotBone()
@@ -784,6 +814,7 @@ namespace eft_dma_radar.UI.Pages
             MemPatchFeature<DisableScreenEffects>.Instance.Enabled = (advMemWritesOn && cfg.DisableScreenEffects);
             MemWriteFeature<BigHead>.Instance.Enabled = (memWritesOn && cfg.BigHead.Enabled);
             MemPatchFeature<SilentLoot>.Instance.Enabled = (memWritesOn && cfg.SilentLoot.Enabled);
+            MemPatchFeature<VisibilityLinecast>.Instance.Enabled = (memWritesOn && cfg.VisCheck.Enabled);
         }
 
         private void ToggleSettingsPanel(UIElement panel)
@@ -1043,6 +1074,14 @@ namespace eft_dma_radar.UI.Pages
                         MemWriteFeature<BigHead>.Instance.Enabled = value;
                         ToggleBigHeadControls();
                         break;
+                    case "VisCheck":
+                        MemWrites.Config.VisCheck.Enabled = value;
+                        MemPatchFeature<VisibilityLinecast>.Instance.Enabled = value;
+                        ToggleVisCheckControls();
+                        break;
+                    case "IgnoreAi":
+                        Config.MemWrites.VisCheck.IgnoreAi = value;
+                        break;
                 }
 
                 Config.Save();
@@ -1161,6 +1200,15 @@ namespace eft_dma_radar.UI.Pages
                     case "BigHeadScale":
                         Config.MemWrites.BigHead.Scale = floatValue;
                         break;
+                    case "VisLowDist":
+                        Config.MemWrites.VisCheck.LowDist = floatValue;
+                        break;
+                    case "VisMidDist":
+                        Config.MemWrites.VisCheck.MidDist = floatValue;
+                        break;
+                    case "VisfarDist":
+                        Config.MemWrites.VisCheck.FarDist = floatValue;
+                        break;
                     case "FOVBase":
                         Config.MemWrites.FOV.Base = intValue;
                         break;
@@ -1232,6 +1280,9 @@ namespace eft_dma_radar.UI.Pages
                         break;
                     case "BigHeadsPanel":
                         ToggleSettingsPanel(pnlBigHeads);
+                        break;
+                    case "VisCheckPanel":
+                        ToggleSettingsPanel(pnlVisCheck);
                         break;
                 }
 
