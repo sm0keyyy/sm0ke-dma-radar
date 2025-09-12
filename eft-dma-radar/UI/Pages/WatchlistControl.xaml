@@ -72,16 +72,18 @@
                     BorderThickness="1"
                     BorderBrush="{DynamicResource BorderBrush}"/>
 
-            <ScrollViewer Style="{StaticResource PanelScrollViewer}">
-                <hc:SimpleStackPanel>
-                    <!-- Watchlist Management -->
-                    <Expander x:Name="expWatchlistManagement" Header="Watchlist Management" Style="{StaticResource PanelExpander}" IsExpanded="True">
-                        <hc:SimpleStackPanel Style="{StaticResource ExpanderContent}" Margin="2,8,2,0">
+            <Grid Margin="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                            <!-- Entry Configuration GroupBox -->
-                            <GroupBox Header="Entry Management" Style="{StaticResource TransparentGroupBoxStyle}"
-                                      Padding="5,0,5,5" Margin="0,0,0,15">
-                                <Grid Margin="0,10,0,0">
+                <!-- Entry Management Expander -->
+                <Expander x:Name="expWatchlistManagement" Grid.Row="0" Header="Entry Management" Style="{StaticResource PanelExpander}" IsExpanded="True">
+                    <hc:SimpleStackPanel Style="{StaticResource ExpanderContent}" Margin="6,8,2,0">
+                        <GroupBox Header="Entry Configuration" Style="{StaticResource TransparentGroupBoxStyle}">
+                            <hc:SimpleStackPanel Margin="8,0,8,0">
+                                <Grid Margin="0,0,0,10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
@@ -121,68 +123,72 @@
                                                 Style="{StaticResource ButtonPrimary}"/>
                                     </hc:SimpleStackPanel>
                                 </Grid>
-                            </GroupBox>
+                            </hc:SimpleStackPanel>
+                        </GroupBox>
+                    </hc:SimpleStackPanel>
+                </Expander>
 
-                            <!-- Watchlist Entries -->
-                            <Border Style="{StaticResource ContainerListBorder}">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
+                <!-- Watchlist Entries Expander -->
+                <Expander x:Name="expWatchlistEntries" Grid.Row="1" Header="Watchlist Entries" Style="{StaticResource PanelExpander}" IsExpanded="True">
+                    <Grid Margin="6,8,0,0">
+                        <Border Style="{StaticResource ContainerListBorder}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                                    <Grid Grid.Row="0" Background="{DynamicResource RegionBrush}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
+                                <Grid Grid.Row="0" Background="{DynamicResource RegionBrush}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                        <TextBlock Text="Account ID" Grid.Column="0" Style="{StaticResource LabelText}" FontWeight="Bold" Padding="10,5"/>
-                                        <TextBlock Text="Reason" Grid.Column="1" Style="{StaticResource LabelText}" FontWeight="Bold" Padding="10,5"/>
-                                    </Grid>
-
-                                    <ListView Grid.Row="1" x:Name="watchlistListView" BorderThickness="0" Background="Transparent" 
-                                              MinHeight="150" MaxHeight="500" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                        <ListView.ItemContainerStyle>
-                                            <Style TargetType="ListViewItem">
-                                                <Setter Property="Padding" Value="2,2"/>
-                                                <Setter Property="MinHeight" Value="24"/>
-                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
-                                                        <Setter Property="Foreground" Value="{DynamicResource TextIconBrush}"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
-                                                        <Setter Property="Opacity" Value="0.8"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ListView.ItemContainerStyle>
-
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <TextBlock Text="{Binding AccountID}" Grid.Column="0" Style="{StaticResource LabelText}" Margin="5,0" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{Binding Reason}" Grid.Column="1" Style="{StaticResource LabelText}" Margin="5,0" Foreground="{DynamicResource InfoBrush}" TextTrimming="CharacterEllipsis"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
+                                    <TextBlock Text="Account ID" Grid.Column="0" Style="{StaticResource LabelText}" FontWeight="Bold" Padding="10,5"/>
+                                    <TextBlock Text="Reason" Grid.Column="1" Style="{StaticResource LabelText}" FontWeight="Bold" Padding="10,5"/>
                                 </Grid>
-                            </Border>
-                        </hc:SimpleStackPanel>
-                    </Expander>
-                </hc:SimpleStackPanel>
-            </ScrollViewer>
+
+                                <ListView Grid.Row="1" x:Name="watchlistListView" BorderThickness="0" Background="Transparent" 
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Padding" Value="2,2"/>
+                                            <Setter Property="MinHeight" Value="24"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextIconBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
+                                                    <Setter Property="Opacity" Value="0.8"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Text="{Binding AccountID}" Grid.Column="0" Style="{StaticResource LabelText}" Margin="5,0" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Reason}" Grid.Column="1" Style="{StaticResource LabelText}" Margin="5,0" Foreground="{DynamicResource InfoBrush}" TextTrimming="CharacterEllipsis"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Expander>
+            </Grid>
 
             <!-- Resize handle -->
             <Grid Style="{StaticResource ResizeHandle}" MouseLeftButtonDown="ResizeHandle_MouseLeftButtonDown">

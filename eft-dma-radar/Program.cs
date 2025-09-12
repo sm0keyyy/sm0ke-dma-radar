@@ -41,9 +41,9 @@ using MessageBox = HandyControl.Controls.MessageBox;
 
 [assembly: AssemblyTitle(Program.Name)]
 [assembly: AssemblyProduct(Program.Name)]
-[assembly: AssemblyCopyright("BSD Zero Clause License ©2025 lone-dma")]
+[assembly: AssemblyCopyright("BSD Zero Clause License ©2025 dma-educational-resources")]
 [assembly: AssemblyDescription("Advanced DMA radar for Escape from Tarkov")]
-[assembly: AssemblyCompany("lone-dma")]
+[assembly: AssemblyCompany("dma-educational-resources")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -54,7 +54,7 @@ namespace eft_dma_radar
     internal static class Program
     {
         internal const string Name = "EFT DMA Radar";
-        internal const string Version = "1.5.0";
+        internal const string Version = "1.5.1";
 
         /// <summary>
         /// Current application mode
@@ -356,7 +356,7 @@ namespace eft_dma_radar
                     {
                         var url = !string.IsNullOrEmpty(versionResult.ReleaseUrl)
                             ? versionResult.ReleaseUrl
-                            : "https://github.com/lone-dma/eft-dma-radar/releases";
+                            : "https://github.com/dma-educational-resources/eft-dma-radar/releases";
 
                         Process.Start(new ProcessStartInfo
                         {
@@ -372,7 +372,7 @@ namespace eft_dma_radar
                         {
                             var url = !string.IsNullOrEmpty(versionResult.ReleaseUrl)
                                 ? versionResult.ReleaseUrl
-                                : "https://github.com/lone-dma/eft-dma-radar/releases";
+                                : "https://github.com/dma-educational-resources/eft-dma-radar/releases";
 
                             System.Windows.Clipboard.SetText(url);
                             MessageBox.Show($"URL copied to clipboard:\n{url}",
@@ -380,7 +380,7 @@ namespace eft_dma_radar
                         }
                         catch
                         {
-                            MessageBox.Show("Please visit: https://github.com/lone-dma/eft-dma-radar/releases",
+                            MessageBox.Show("Please visit: https://github.com/dma-educational-resources/eft-dma-radar/releases",
                                           "Manual Update", MessageBoxButton.OK, MessageBoxImage.Information);
                         }
                     }
@@ -594,7 +594,7 @@ namespace eft_dma_radar
         /// </summary>
         private static class GitHubVersionChecker
         {
-            private const string GITHUB_API_URL = "https://api.github.com/repos/lone-dma/eft-dma-radar/releases/latest";
+            private const string GITHUB_API_URL = "https://api.github.com/repos/dma-educational-resources/eft-dma-radar/releases/latest";
 
             private static readonly HttpClient _httpClient = new HttpClient();
             private static DateTime _lastCheck = DateTime.MinValue;

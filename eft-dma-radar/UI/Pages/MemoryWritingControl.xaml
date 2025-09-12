@@ -1206,7 +1206,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <CheckBox x:Name="chVisCheck" Content="Visibility Check" 
+                                    <CheckBox x:Name="chkVisCheck" Content="Visibility Check" 
                                           Style="{StaticResource DynamicCheckBoxStyle}" 
                                           Grid.Column="0" Tag="VisCheck"
                                           VerticalAlignment="Center"/>

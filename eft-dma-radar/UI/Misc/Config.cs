@@ -1899,6 +1899,12 @@ namespace eft_dma_radar.UI.Misc
         public bool ShowQuestInfoWidget { get; set; } = true;
 
         /// <summary>
+        /// Enables hotkey info Widget on fuser.
+        /// </summary>
+        [JsonPropertyName("showHotkeyInfoWidget")]
+        public bool ShowHotkeyInfoWidget { get; set; } = true;
+
+        /// <summary>
         /// FPS offset position
         /// </summary>
         [JsonPropertyName("fpsOffset")]
@@ -2923,6 +2929,27 @@ namespace eft_dma_radar.UI.Misc
         {
             get => new(_qInfoLoc.Left, _qInfoLoc.Top, _qInfoLoc.Right, _qInfoLoc.Bottom);
             set => _qInfoLoc = new RectFSer(value.Left, value.Top, value.Right, value.Bottom);
+        }
+
+        #endregion
+
+        #region Hotkey Info
+
+        [JsonInclude]
+        [JsonPropertyName("hotkeyInfoLocationESP")]
+        public RectFSer _hkInfoLoc { private get; set; }
+
+        [JsonPropertyName("hotkeyInfoMinimizedESP")]
+        public bool HotkeyInfoMinimized { get; set; } = false;
+
+        /// <summary>
+        /// Loot Info Location
+        /// </summary>
+        [JsonIgnore]
+        public SKRect HotkeyInfoLocation
+        {
+            get => new(_hkInfoLoc.Left, _hkInfoLoc.Top, _hkInfoLoc.Right, _hkInfoLoc.Bottom);
+            set => _hkInfoLoc = new RectFSer(value.Left, value.Top, value.Right, value.Bottom);
         }
 
         #endregion

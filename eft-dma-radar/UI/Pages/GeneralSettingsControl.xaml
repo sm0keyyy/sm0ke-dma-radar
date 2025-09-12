@@ -1294,13 +1294,17 @@
 
                 <!-- Hotkeys Tab -->
                 <hc:TabItem Header="Hotkeys">
-                    <ScrollViewer Style="{StaticResource PanelScrollViewer}">
-                        <hc:SimpleStackPanel>
-                            <Expander x:Name="expApplicationHotkeys" Header="Application Hotkeys" Style="{StaticResource PanelExpander}" IsExpanded="True">
-                                <hc:SimpleStackPanel Style="{StaticResource ExpanderContent}" Margin="2,8,2,0">
-                                    <!-- Hotkey Configuration -->
-                                    <GroupBox Header="Hotkey Configuration" Style="{StaticResource TransparentGroupBoxStyle}"
-                                              Padding="8,5,8,8" Margin="0,0,0,15">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Hotkey Configuration Expander -->
+                        <Expander x:Name="expHotkeyConfiguration" Grid.Row="0" Header="Hotkey Configuration" Style="{StaticResource PanelExpander}" IsExpanded="True">
+                            <hc:SimpleStackPanel Style="{StaticResource ExpanderContent}" Margin="0,8,2,0">
+                                <GroupBox Header="Add/Remove Hotkeys" Style="{StaticResource TransparentGroupBoxStyle}">
+                                    <hc:SimpleStackPanel Margin="8,0,8,0">
                                         <Grid Margin="0,8,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
@@ -1318,29 +1322,35 @@
                                             <TextBlock Text="Action:" Grid.Row="0" Grid.Column="0" 
                                                        Style="{StaticResource LabelText}"
                                                        VerticalAlignment="Center" 
-                                                       Margin="0,0,8,0"/>
+                                                       Margin="0,0,8,8"/>
 
                                             <ComboBox x:Name="cboAction" Grid.Row="0" Grid.Column="1"
                                                       DisplayMemberPath="Name"
                                                       SelectedValuePath="Key"
                                                       hc:InfoElement.Placeholder="Select Action"
-                                                      Margin="0,0,15,0"/>
+                                                      Margin="0,0,15,8"/>
 
                                             <!-- Key Selection -->
+                                            <TextBlock Text="Key:" Grid.Row="0" Grid.Column="2" 
+                                                       Style="{StaticResource LabelText}"
+                                                       VerticalAlignment="Center" 
+                                                       Margin="0,0,8,8"/>
+
                                             <controls:KeyInputBox x:Name="keyInputBox" 
                                                 Grid.Row="0" Grid.Column="3"
-                                                PlaceholderText="Select Key"/>
+                                                PlaceholderText="Select Key"
+                                                Margin="0,0,0,8"/>
 
                                             <!-- Hotkey Type -->
                                             <TextBlock Text="Type:" Grid.Row="1" Grid.Column="0" 
                                                        Style="{StaticResource LabelText}"
-                                                       VerticalAlignment="Top" 
-                                                       Margin="0,9,8,0" Height="18"/>
+                                                       VerticalAlignment="Center" 
+                                                       Margin="0,0,8,8"/>
 
                                             <hc:SimpleStackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" 
                                                                  Orientation="Horizontal" 
                                                                  VerticalAlignment="Center"
-                                                                 Margin="0,10,0,15">
+                                                                 Margin="0,0,0,8">
                                                 <RadioButton x:Name="rdbOnKey" 
                                                              Content="On Key" 
                                                              Margin="0,0,10,0" 
@@ -1352,7 +1362,7 @@
                                             <hc:SimpleStackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4"
                                                                  Orientation="Horizontal" 
                                                                  HorizontalAlignment="Right" 
-                                                                 Margin="0,0,1,0">
+                                                                 Margin="0,8,1,0">
                                                 <Button x:Name="btnRemoveHotkey" Content="Remove Hotkey"
                                                         Margin="0,0,10,0"
                                                         Style="{StaticResource ButtonPrimary}"/>
@@ -1360,69 +1370,85 @@
                                                         Style="{StaticResource ButtonPrimary}" Width="94"/>
                                             </hc:SimpleStackPanel>
                                         </Grid>
-                                    </GroupBox>
+                                    </hc:SimpleStackPanel>
+                                </GroupBox>
+                            </hc:SimpleStackPanel>
+                        </Expander>
 
-                                    <!-- Hotkeys Display Table -->
-                                    <Border Style="{StaticResource ContainerListBorder}">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto"/>
-                                                <RowDefinition Height="*"/>
-                                            </Grid.RowDefinitions>
+                        <!-- Hotkeys Display Table Expander -->
+                        <Expander x:Name="expHotkeysDisplay" Grid.Row="1" Header="Active Hotkeys" Style="{StaticResource PanelExpander}" IsExpanded="True">
+                            <Grid Margin="0,8,0,0">
+                                <Border Style="{StaticResource ContainerListBorder}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
 
-                                            <!-- Headers -->
-                                            <Grid Grid.Row="0" Background="{DynamicResource RegionBrush}">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
+                                        <!-- Headers -->
+                                        <Grid Grid.Row="0" Background="{DynamicResource RegionBrush}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
 
-                                                <TextBlock Text="Action" Grid.Column="0" Style="{StaticResource LabelText}"
-                                                           FontWeight="Bold" Padding="10,5"/>
-                                                <TextBlock Text="Key" Grid.Column="1" Style="{StaticResource LabelText}"
-                                                           FontWeight="Bold" Padding="10,5"/>
-                                                <TextBlock Text="Type" Grid.Column="2" Style="{StaticResource LabelText}"
-                                                           FontWeight="Bold" Padding="10,5"/>
-                                            </Grid>
-
-                                            <!-- Bindable Hotkey List -->
-                                            <ListView Grid.Row="1" x:Name="hotkeyListView"
-                                                      ItemsSource="{Binding Hotkeys}"
-                                                      BorderThickness="0" Background="Transparent"
-                                                      Height="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-
-                                                <ListView.ItemContainerStyle>
-                                                    <Style TargetType="ListViewItem">
-                                                        <Setter Property="Padding" Value="2,2"/>
-                                                        <Setter Property="MinHeight" Value="24"/>
-                                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                                    </Style>
-                                                </ListView.ItemContainerStyle>
-
-                                                <ListView.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding Action}" Grid.Column="0" Style="{StaticResource LabelText}" Margin="5,0"/>
-                                                            <TextBlock Text="{Binding Key}" Grid.Column="1" Style="{StaticResource LabelText}" Margin="5,0"/>
-                                                            <TextBlock Text="{Binding Type}" Grid.Column="2" Style="{StaticResource LabelText}" Margin="5,0"/>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ListView.ItemTemplate>
-                                            </ListView>
+                                            <TextBlock Text="Action" Grid.Column="0" Style="{StaticResource LabelText}"
+                                                       FontWeight="Bold" Padding="10,5"/>
+                                            <TextBlock Text="Key" Grid.Column="1" Style="{StaticResource LabelText}"
+                                                       FontWeight="Bold" Padding="10,5"/>
+                                            <TextBlock Text="Type" Grid.Column="2" Style="{StaticResource LabelText}"
+                                                       FontWeight="Bold" Padding="10,5"/>
                                         </Grid>
-                                    </Border>
-                                </hc:SimpleStackPanel>
-                            </Expander>
-                        </hc:SimpleStackPanel>
-                    </ScrollViewer>
+
+                                        <!-- Bindable Hotkey List -->
+                                        <ListView Grid.Row="1" x:Name="hotkeyListView"
+                                                  ItemsSource="{Binding Hotkeys}"
+                                                  BorderThickness="0" Background="Transparent"
+                                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+
+                                            <ListView.ItemContainerStyle>
+                                                <Style TargetType="ListViewItem">
+                                                    <Setter Property="Padding" Value="2,2"/>
+                                                    <Setter Property="MinHeight" Value="24"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextIconBrush}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource DarkDefaultBrush}"/>
+                                                            <Setter Property="Opacity" Value="0.8"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ListView.ItemContainerStyle>
+
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding Action}" Grid.Column="0" Style="{StaticResource LabelText}" Margin="5,0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Key}" Grid.Column="1" Style="{StaticResource LabelText}" Margin="5,0" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Type}" Grid.Column="2" Style="{StaticResource LabelText}" Margin="5,0" TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Expander>
+                    </Grid>
                 </hc:TabItem>
-                
+
                 <!-- Config Tab -->
                 <hc:TabItem Header="Config">
                     <ScrollViewer Style="{StaticResource PanelScrollViewer}">

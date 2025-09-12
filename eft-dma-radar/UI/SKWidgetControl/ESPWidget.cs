@@ -113,7 +113,7 @@ namespace eft_dma_radar.UI.ESP
         #endregion
 
         #region Constructor
-        protected ESPWidget(SKGLControl parent, string title, SKPoint location, SKSize clientSize, float scaleFactor, bool canResize = true)
+        protected ESPWidget(SKGLControl parent, string title, SKPoint location, SKSize clientSize, float scaleFactor, bool canResize = true, bool transparentBackground = false)
         {
             _parent = parent;
             CanResize = canResize;
@@ -126,6 +126,9 @@ namespace eft_dma_radar.UI.ESP
             RegisterWidget(parent, this);
 
             InitializeResizeTriangle();
+
+            if (transparentBackground)
+                WidgetBackgroundPaint.Color = WidgetBackgroundPaint.Color.WithAlpha(0);
         }
 
         private static void RegisterWidget(SKGLControl parent, ESPWidget widget)
@@ -509,7 +512,7 @@ namespace eft_dma_radar.UI.ESP
         #endregion
 
         #region Paints
-        private static readonly SKPaint WidgetBackgroundPaint = new SKPaint()
+        private readonly SKPaint WidgetBackgroundPaint = new SKPaint()
         {
             Color = SKColor.Parse("#222222"),
             StrokeWidth = 1,

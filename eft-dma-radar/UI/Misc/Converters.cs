@@ -296,4 +296,29 @@ namespace eft_dma_radar.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class IntegerNotEqualConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || parameter == null)
+                return false;
+
+            int threshold;
+            int compareValue;
+
+            if (!int.TryParse(parameter.ToString(), out threshold))
+                return false;
+
+            if (!int.TryParse(value.ToString(), out compareValue))
+                return false;
+
+            return compareValue != threshold;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

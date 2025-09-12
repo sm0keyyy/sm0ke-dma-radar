@@ -24,6 +24,8 @@ using UserControl = System.Windows.Controls.UserControl;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
 using MessageBox = eft_dma_shared.Common.UI.Controls.MessageBox;
+using DataGrid = System.Windows.Controls.DataGrid;
+using DataGridCell = System.Windows.Controls.DataGridCell;
 
 namespace eft_dma_radar.UI.Pages
 {

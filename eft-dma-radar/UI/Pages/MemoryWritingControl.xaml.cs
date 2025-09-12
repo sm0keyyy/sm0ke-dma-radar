@@ -321,8 +321,8 @@ namespace eft_dma_radar.UI.Pages
             chkMedPanel.Unchecked += MemWritingCheckbox_Checked;
             chkDisableInventoryBlur.Checked += MemWritingCheckbox_Checked;
             chkDisableInventoryBlur.Unchecked += MemWritingCheckbox_Checked;
-            chVisCheck.Checked += MemWritingCheckbox_Checked;
-            chVisCheck.Unchecked += MemWritingCheckbox_Checked;
+            chkVisCheck.Checked += MemWritingCheckbox_Checked;
+            chkVisCheck.Unchecked += MemWritingCheckbox_Checked;
             chkBigHeads.Checked += MemWritingCheckbox_Checked;
             chkBigHeads.Unchecked += MemWritingCheckbox_Checked;
             btnBigHeadsConfig.Click += MemWritingButton_Clicked;
@@ -405,7 +405,7 @@ namespace eft_dma_radar.UI.Pages
             chkInstantPlant.IsChecked = cfg.InstantPlant;
             chkMedPanel.IsChecked = cfg.MedPanel;
             chkDisableInventoryBlur.IsChecked = cfg.DisableInventoryBlur;
-            chVisCheck.IsChecked = cfg.VisCheck.Enabled;
+            chkVisCheck.IsChecked = cfg.VisCheck.Enabled;
             sldrVisCheckFarDistance.Value = cfg.VisCheck.FarDist;
             sldrVisCheckMidDistance.Value = cfg.VisCheck.MidDist;
             sldrVisCheckLowDistance.Value = cfg.VisCheck.LowDist;
@@ -637,7 +637,6 @@ namespace eft_dma_radar.UI.Pages
             var memWrites = MemWrites.Enabled;
             var enableControl = memWrites && Config.MemWrites.VisCheck.Enabled;
 
-            chVisCheck.IsEnabled = memWrites;
             btnVisCheckConfig.IsEnabled = enableControl;
             sldrVisCheckLowDistance.IsEnabled = enableControl;
             sldrVisCheckMidDistance.IsEnabled = enableControl;
@@ -722,7 +721,7 @@ namespace eft_dma_radar.UI.Pages
             // General Settings
             chkAdvancedWrites.IsEnabled = memWritingEnabled;
             chkAntiPage.IsEnabled = enabled;
-            
+
             // Chams
             MainWindow.Window.ESPControl.UpdateChamsControls();
 
@@ -740,7 +739,7 @@ namespace eft_dma_radar.UI.Pages
             // Misc
             chkStreamerMode.IsEnabled = enabled;
             chkHideRaidCode.IsEnabled = enabled;
-            chVisCheck.IsEnabled = memWritingEnabled;
+            chkVisCheck.IsEnabled = enabled;
         }
 
         public void ToggleAimbotBone()
@@ -982,7 +981,6 @@ namespace eft_dma_radar.UI.Pages
                         Config.MemWrites.SilentLoot.Enabled = value;
                         MemPatchFeature<SilentLoot>.Instance.Enabled = value;
                         ToggleSilentLootControls();
-                        NotificationsShared.Info("awawawa");
                         break;
                     case "ExtendedReach":
                         Config.MemWrites.ExtendedReach.Enabled = value;
@@ -1116,60 +1114,60 @@ namespace eft_dma_radar.UI.Pages
                     case "RNGTorso":
                     case "RNGArms":
                     case "RNGLegs":
-                    {
-                        var rng = Config.MemWrites.Aimbot.RandomBone;
-
-                        switch (tag)
                         {
-                            case "RNGHead": rng.HeadPercent = intValue; break;
-                            case "RNGTorso": rng.TorsoPercent = intValue; break;
-                            case "RNGArms": rng.ArmsPercent = intValue; break;
-                            case "RNGLegs": rng.LegsPercent = intValue; break;
-                        }
-            
-                        var total = rng.HeadPercent + rng.TorsoPercent + rng.ArmsPercent + rng.LegsPercent;
+                            var rng = Config.MemWrites.Aimbot.RandomBone;
 
-                        if (total > 100)
-                        {
-                            var overflow = total - 100;
-                            var sliders = new Dictionary<string, Action<int>>
+                            switch (tag)
                             {
-                                ["RNGHead"] = v => rng.HeadPercent = v,
-                                ["RNGTorso"] = v => rng.TorsoPercent = v,
-                                ["RNGArms"] = v => rng.ArmsPercent = v,
-                                ["RNGLegs"] = v => rng.LegsPercent = v
-                            };
-            
-                            var values = new Dictionary<string, int>
-                            {
-                                ["RNGHead"] = rng.HeadPercent,
-                                ["RNGTorso"] = rng.TorsoPercent,
-                                ["RNGArms"] = rng.ArmsPercent,
-                                ["RNGLegs"] = rng.LegsPercent
-                            };
-            
-                            foreach (var key in values.Keys.ToList())
-                            {
-                                if (key == tag) continue;
-            
-                                if (overflow == 0) break;
-            
-                                int reduceBy = Math.Min(values[key], overflow);
-                                values[key] -= reduceBy;
-                                overflow -= reduceBy;
+                                case "RNGHead": rng.HeadPercent = intValue; break;
+                                case "RNGTorso": rng.TorsoPercent = intValue; break;
+                                case "RNGArms": rng.ArmsPercent = intValue; break;
+                                case "RNGLegs": rng.LegsPercent = intValue; break;
                             }
 
-                            foreach (var kv in values)
-                                sliders[kv.Key](kv.Value);
+                            var total = rng.HeadPercent + rng.TorsoPercent + rng.ArmsPercent + rng.LegsPercent;
 
-                            sldrAimbotRNGHead.Value = rng.HeadPercent;
-                            sldrAimbotRNGTorso.Value = rng.TorsoPercent;
-                            sldrAimbotRNGArms.Value = rng.ArmsPercent;
-                            sldrAimbotRNGLegs.Value = rng.LegsPercent;
+                            if (total > 100)
+                            {
+                                var overflow = total - 100;
+                                var sliders = new Dictionary<string, Action<int>>
+                                {
+                                    ["RNGHead"] = v => rng.HeadPercent = v,
+                                    ["RNGTorso"] = v => rng.TorsoPercent = v,
+                                    ["RNGArms"] = v => rng.ArmsPercent = v,
+                                    ["RNGLegs"] = v => rng.LegsPercent = v
+                                };
+
+                                var values = new Dictionary<string, int>
+                                {
+                                    ["RNGHead"] = rng.HeadPercent,
+                                    ["RNGTorso"] = rng.TorsoPercent,
+                                    ["RNGArms"] = rng.ArmsPercent,
+                                    ["RNGLegs"] = rng.LegsPercent
+                                };
+
+                                foreach (var key in values.Keys.ToList())
+                                {
+                                    if (key == tag) continue;
+
+                                    if (overflow == 0) break;
+
+                                    int reduceBy = Math.Min(values[key], overflow);
+                                    values[key] -= reduceBy;
+                                    overflow -= reduceBy;
+                                }
+
+                                foreach (var kv in values)
+                                    sliders[kv.Key](kv.Value);
+
+                                sldrAimbotRNGHead.Value = rng.HeadPercent;
+                                sldrAimbotRNGTorso.Value = rng.TorsoPercent;
+                                sldrAimbotRNGArms.Value = rng.ArmsPercent;
+                                sldrAimbotRNGLegs.Value = rng.LegsPercent;
+                            }
+
+                            break;
                         }
-            
-                        break;
-                    }
                     case "LTWZoom":
                         Config.MemWrites.LootThroughWalls.ZoomAmount = roundedValue;
                         break;

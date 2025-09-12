@@ -33,6 +33,7 @@ using DragDropEffects = System.Windows.DragDropEffects;
 using DragEventArgs = System.Windows.DragEventArgs;
 using ListView = System.Windows.Controls.ListView;
 using ListViewItem = System.Windows.Controls.ListViewItem;
+using MenuItem = System.Windows.Controls.MenuItem;
 using MessageBox = eft_dma_shared.Common.UI.Controls.MessageBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Orientation = System.Windows.Controls.Orientation;

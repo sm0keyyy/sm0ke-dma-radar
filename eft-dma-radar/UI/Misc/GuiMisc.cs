@@ -36,6 +36,8 @@ namespace eft_dma_radar.UI.Misc
 
         public string ID => _player.AccountID;
 
+        public int GroupID => _player.GroupID;
+
         public string Acct
         {
             get

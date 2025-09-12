@@ -79,10 +79,10 @@
                            FontSize="12"/>
                 <TextBlock>
                     <Hyperlink x:Name="githubLink" 
-                               NavigateUri="https://github.com/lone-dma" 
+                               NavigateUri="https://github.com/dma-educational-resources" 
                                RequestNavigate="githubLink_RequestNavigate"
                                TextDecorations="None">
-                        <TextBlock Text="lone-dma" 
+                        <TextBlock Text="DMA Educational Resources" 
                                    Foreground="#0094FF" 
                                    FontWeight="SemiBold"
                                    FontSize="12"/>

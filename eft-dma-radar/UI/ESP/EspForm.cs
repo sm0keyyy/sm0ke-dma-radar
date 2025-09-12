@@ -18,6 +18,7 @@ using eft_dma_shared.Common.Unity;
 using RectFSer = eft_dma_radar.UI.Misc.RectFSer;
 using Switch = eft_dma_radar.Tarkov.GameWorld.Exits.Switch;
 using System.ComponentModel;
+using eft_dma_shared.Common.Misc.Data.EFT;
 
 namespace eft_dma_radar.UI.ESP
 {
@@ -69,6 +70,10 @@ namespace eft_dma_radar.UI.ESP
         private ESPQuestInfoWidget _espQuestInfo;
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public ESPQuestInfoWidget ESPQuestInfo { get => _espQuestInfo; private set => _espQuestInfo = value; }
+
+        private ESPHotkeyWidget _espHotkeyInfo;
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public ESPHotkeyWidget ESPHotkeyInfo { get => _espHotkeyInfo; private set => _espHotkeyInfo = value; }
 
         private readonly ConcurrentBag<SKPath> _pathPool = new ConcurrentBag<SKPath>();
 
@@ -391,8 +396,14 @@ namespace eft_dma_radar.UI.ESP
             if (Config.ESPWidgets.QuestInfoLocation == default)
                 Config.ESPWidgets.QuestInfoLocation = new SKRect(left + 50, top + 50, left + 450, top + 400);
 
-            _espQuestInfo = new ESPQuestInfoWidget(skglControl_ESP, new SKPoint(Config.ESPWidgets.QuestInfoLocation.Left, Config.Widgets.QuestInfoLocation.Top), Config.ESPWidgets.QuestInfoMinimized, Config.ESP.FontScale);
+            if (Config.ESPWidgets.HotkeyInfoLocation == default)
+                Config.ESPWidgets.HotkeyInfoLocation = new SKRect(left + 50, top + 50, left + 450, top + 400);
+
+            _espQuestInfo = new ESPQuestInfoWidget(skglControl_ESP, new SKPoint(Config.ESPWidgets.QuestInfoLocation.Left, Config.ESPWidgets.QuestInfoLocation.Top), Config.ESPWidgets.QuestInfoMinimized, Config.ESP.FontScale);
             _espQuestInfo.Size = new SKSize(Config.ESPWidgets.QuestInfoLocation.Width, Config.ESPWidgets.QuestInfoLocation.Height);
+
+            _espHotkeyInfo = new ESPHotkeyWidget(skglControl_ESP, new SKPoint(Config.ESPWidgets.HotkeyInfoLocation.Left, Config.ESPWidgets.HotkeyInfoLocation.Top), Config.ESPWidgets.HotkeyInfoMinimized, Config.ESP.FontScale);
+            _espHotkeyInfo.Size = new SKSize(Config.ESPWidgets.HotkeyInfoLocation.Width, Config.ESPWidgets.HotkeyInfoLocation.Height);
         }
 
         private void SaveWidgetPositions()
@@ -403,7 +414,14 @@ namespace eft_dma_radar.UI.ESP
                 Config.ESPWidgets.QuestInfoMinimized = _espQuestInfo.Minimized;
             }
 
+            if (_espHotkeyInfo != null)
+            {
+                Config.ESPWidgets.HotkeyInfoLocation = _espHotkeyInfo.ClientRect;
+                Config.ESPWidgets.HotkeyInfoMinimized = _espHotkeyInfo.Minimized;
+            }
+
             _espQuestInfo?.Dispose();
+            _espHotkeyInfo?.Dispose();
         }
 
         public void UpdateRenderTimerInterval(int targetFPS)
@@ -514,7 +532,23 @@ namespace eft_dma_radar.UI.ESP
         /// <summary>
         /// Handle double click even on ESP Window (toggles fullscreen).
         /// </summary>
-        private void ESPForm_DoubleClick(object sender, EventArgs e) => SetFullscreen(!IsFullscreen);
+        private void ESPForm_DoubleClick(object sender, EventArgs e)
+        {
+            var mouseEventArgs = e as MouseEventArgs;
+            if (mouseEventArgs == null)
+            {
+                var cursorPos = skglControl_ESP.PointToClient(Cursor.Position);
+                mouseEventArgs = new MouseEventArgs(MouseButtons.Left, 2, cursorPos.X, cursorPos.Y, 0);
+            }
+
+            var point = new SKPoint(mouseEventArgs.X, mouseEventArgs.Y);
+
+            if (IsOverInteractiveElement(point))
+                return;
+
+            // Safe to toggle fullscreen
+            SetFullscreen(!IsFullscreen);
+        }
 
         /// <summary>
         /// Main ESP Render Event.
@@ -590,8 +624,11 @@ namespace eft_dma_radar.UI.ESP
                             DrawTopLoot(canvas, localPlayer);
                         if (ESPConfig.ShowQuestInfoWidget)
                             _espQuestInfo?.Draw(canvas);
+                        if (ESPConfig.ShowHotkeyInfoWidget)
+                            _espHotkeyInfo?.Draw(canvas);
                         if (ESPConfig.MiniRadar.Enabled)
                             DrawRadar(canvas, localPlayer);
+
                     }
                 }
             }
@@ -1379,6 +1416,76 @@ namespace eft_dma_radar.UI.ESP
                 Config.ESP.RadarZoom = newZoom;
             else
                 Config.ESP.RadarZoom = 70;
+        }
+
+        /// <summary>
+        /// Check if a point is over any interactive element (draggable UI elements, widgets, or radar)
+        /// </summary>
+        private bool IsOverInteractiveElement(SKPoint point)
+        {
+            CheckRenderContextChanges();
+
+            if (IsOverESPWidgets(point))
+                return true;
+
+            if (IsOverDraggableElements(point))
+                return true;
+
+            if (IsOverRadar(point))
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if point is over any ESP widgets
+        /// </summary>
+        private bool IsOverESPWidgets(SKPoint point)
+        {
+            if (ESPConfig.ShowQuestInfoWidget && _espQuestInfo != null && !_espQuestInfo.Minimized)
+            {
+                if (_espQuestInfo.ClientRect.Contains(point))
+                    return true;
+            }
+
+            if (ESPConfig.ShowHotkeyInfoWidget && _espHotkeyInfo != null && !_espHotkeyInfo.Minimized)
+            {
+                if (_espHotkeyInfo.ClientRect.Contains(point))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if point is over any draggable UI elements
+        /// </summary>
+        private bool IsOverDraggableElements(SKPoint point)
+        {
+            foreach (var element in _uiElements.Keys)
+            {
+                if (IsElementVisible(element) && IsNearElement(point, element))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if point is over radar (including resize handle)
+        /// </summary>
+        private bool IsOverRadar(SKPoint point)
+        {
+            if (!IsElementVisible(UIElement.Radar))
+                return false;
+
+            if (_radarRect.Contains(point))
+                return true;
+
+            if (IsNearCorner(point, _radarRect))
+                return true;
+
+            return false;
         }
 
         #endregion

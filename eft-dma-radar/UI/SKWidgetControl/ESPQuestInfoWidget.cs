@@ -24,7 +24,7 @@ namespace eft_dma_radar.UI.ESP
         /// Constructs an ESP Quest Info Widget.
         /// </summary>
         public ESPQuestInfoWidget(SKGLControl parent, SKPoint location, bool minimized, float scale)
-            : base(parent, "Quest Info", location, new SKSize(450, 400), scale, true)
+            : base(parent, "Quest Info", location, new SKSize(450, 400), scale, true, false)
         {
             Minimized = minimized;
             _padding = 6f * scale;

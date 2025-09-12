@@ -39,34 +39,71 @@ namespace eft_dma_radar.UI.Pages
         private bool _indexedOnce;
         private List<SettingsIndexEntry> _index = new();
         #endregion
+        private bool _initialized;
 
         public SettingsSearchControl()
         {
             InitializeComponent();
+            Loaded += OnLoadedOnceAsync;
+            Unloaded += (_, __) => Loaded -= OnLoadedOnceAsync;
+        }
 
-            this.Loaded += async (_, __) =>
+        private async void OnLoadedOnceAsync(object sender, RoutedEventArgs e)
+        {
+            if (_initialized) return;
+            _initialized = true;
+
+            var oldVisibility = Visibility;
+            var oldHitTest = IsHitTestVisible;
+            Visibility = Visibility.Collapsed;
+            IsHitTestVisible = false;
+
+            try
             {
                 while (MainWindow.Config == null || !EftDataManager.IsInitialized)
-                {
                     await Task.Delay(INTERVAL);
-                }
 
-                //PanelCoordinator.Instance.SetPanelReady("SettingsSearch");
+                // preserve only what exists in THIS control
+                var resultsOffset = GetVerticalOffset(ResultsList);
 
-                try
+                InitializeControlEvents();
+                LoadSettings(); // your existing binding/indexing
+
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    //await PanelCoordinator.Instance.WaitForAllPanelsAsync();
-                    //await Dispatcher.Yield(DispatcherPriority.Loaded);
+                    SetVerticalOffset(ResultsList, resultsOffset);
+                }), DispatcherPriority.Loaded);
 
-                    //InitializeControlEvents();
-                    //LoadSettings();
-                }
-                catch (TimeoutException ex)
-                {
-                    LoneLogging.WriteLine($"[PANELS] {ex.Message}");
-                }
-            };
+                PanelCoordinator.Instance.SetPanelReady("SettingsSearch");
+            }
+            finally
+            {
+                Visibility = oldVisibility;
+                IsHitTestVisible = oldHitTest;
+            }
         }
+
+        private static ScrollViewer? FindScrollViewer(DependencyObject d)
+        {
+            if (d is ScrollViewer sv) return sv;
+            for (int i = 0, n = VisualTreeHelper.GetChildrenCount(d); i < n; i++)
+            {
+                var child = VisualTreeHelper.GetChild(d, i);
+                var found = FindScrollViewer(child);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private static double GetVerticalOffset(ItemsControl list)
+            => FindScrollViewer(list) is ScrollViewer sv ? sv.VerticalOffset : 0.0;
+
+        private static void SetVerticalOffset(ItemsControl list, double offset)
+        {
+            if (FindScrollViewer(list) is ScrollViewer sv)
+                sv.ScrollToVerticalOffset(Math.Max(0, offset));
+        }
+
 
         #region Settings Search Panel
         #region Functions/Methods

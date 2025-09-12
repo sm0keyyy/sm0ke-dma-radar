@@ -96,7 +96,6 @@ namespace eft_dma_shared
                 "vcruntime140.dll",
                 "tinylz4.dll",
                 "libSkiaSharp.dll",
-                "libHarfBuzzSharp.dll",
                 "Maps.bin"
             };
 

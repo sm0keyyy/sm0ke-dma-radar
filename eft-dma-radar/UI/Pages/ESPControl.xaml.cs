@@ -84,7 +84,8 @@ namespace eft_dma_radar.UI.Pages
 
         private readonly string[] _availableWidgets = new string[]
         {
-            "Quest Info Widget"
+            "Quest Info Widget",
+            "Hotkey Info Widget"
         };
 
         private readonly string[] _availableFuserOptions = new string[]
@@ -1758,7 +1759,8 @@ namespace eft_dma_radar.UI.Pages
         {
             var optionsToUpdate = new Dictionary<string, bool>
             {
-                ["Quest Info Widget"] = Config.ESP.ShowQuestInfoWidget
+                ["Quest Info Widget"] = Config.ESP.ShowQuestInfoWidget,
+                ["Hotkey Info Widget"] = Config.ESP.ShowHotkeyInfoWidget
             };
 
             foreach (CheckComboBoxItem item in ccbWidgets.Items)
@@ -1876,6 +1878,7 @@ namespace eft_dma_radar.UI.Pages
 
             var espWindow = ESPForm.Window;
             espWindow?.ESPQuestInfo?.SetScaleFactor(fontScale);
+            espWindow?.ESPHotkeyInfo?.SetScaleFactor(fontScale);
             espWindow?.OnRenderContextChanged();
         }
 
@@ -2232,6 +2235,9 @@ namespace eft_dma_radar.UI.Pages
                 {
                     case "Quest Info Widget":
                         Config.ESP.ShowQuestInfoWidget = isSelected;
+                        break;
+                    case "Hotkey Info Widget":
+                        Config.ESP.ShowHotkeyInfoWidget = isSelected;
                         break;
                 }
             }

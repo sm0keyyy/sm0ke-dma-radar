@@ -4,9 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:hc="https://handyorg.github.io/handycontrol"
+             xmlns:local="clr-namespace:eft_dma_radar.Converters"
              mc:Ignorable="d" 
-             d:DesignHeight="350" d:DesignWidth="550"
+             d:DesignHeight="350" d:DesignWidth="600"
              MinWidth="350" MinHeight="130">
+    <UserControl.Resources>
+        <local:IntegerNotEqualConverter x:Key="IntegerNotEqualConverter"/>
+    </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -73,6 +77,9 @@
                                 <Trigger Property="DisplayIndex" Value="6">
                                     <Setter Property="HorizontalContentAlignment" Value="Center"/>
                                 </Trigger>
+                                <Trigger Property="DisplayIndex" Value="7">
+                                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                </Trigger>
                             </Style.Triggers>
                         </Style>
                     </DataGrid.ColumnHeaderStyle>
@@ -129,6 +136,19 @@
                         <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="80">
                             <DataGridTextColumn.ElementStyle>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellTextStyle}"/>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="Grp" Binding="{Binding GroupID}" Width="50">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellTextStyle}">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding GroupID, Converter={StaticResource IntegerNotEqualConverter}, ConverterParameter=-1}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFD700"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
                             </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
 

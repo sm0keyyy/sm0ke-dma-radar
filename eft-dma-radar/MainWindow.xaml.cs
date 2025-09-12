@@ -692,7 +692,7 @@ namespace eft_dma_radar
             PlayerType.Streamer => 6,
             PlayerType.USEC or PlayerType.BEAR => 5,
             PlayerType.PScav => 4,
-            PlayerType.AIBoss=> 3,
+            PlayerType.AIBoss => 3,
             PlayerType.AIRaider => 2,
             _                 => 1
             
@@ -1974,7 +1974,7 @@ namespace eft_dma_radar
             coordinator.RegisterRequiredPanel("Watchlist");
             coordinator.RegisterRequiredPanel("PlayerHistory");
             coordinator.RegisterRequiredPanel("PlayerPreview");
-            //coordinator.RegisterRequiredPanel("SettingsSearch");
+            coordinator.RegisterRequiredPanel("SettingsSearch");
             coordinator.AllPanelsReady += OnAllPanelsReady;
         }
 
@@ -2234,6 +2234,7 @@ namespace eft_dma_radar
                 "PlayerHistoryPanel" => MIN_PLAYERHISTORY_PANEL_WIDTH,
                 "LootFilterPanel" => MIN_LOOT_FILTER_PANEL_WIDTH,
                 "PlayerPreviewPanel" => MIN_SETTINGS_PANEL_WIDTH,
+                "SettingsSearchPanel" => MIN_SEARCH_SETTINGS_PANEL_WIDTH,
                 "MapSetupPanel" => 300,
                 _ => 200
             };
@@ -2251,6 +2252,7 @@ namespace eft_dma_radar
                 "PlayerHistoryPanel" => MIN_PLAYERHISTORY_PANEL_HEIGHT,
                 "LootFilterPanel" => MIN_LOOT_FILTER_PANEL_HEIGHT,
                 "PlayerPreviewPanel" => MIN_SETTINGS_PANEL_HEIGHT,
+                "SettingsSearchPanel" => MIN_SEARCH_SETTINGS_PANEL_HEIGHT,
                 "MapSetupPanel" => 300,
                 _ => 200
             };

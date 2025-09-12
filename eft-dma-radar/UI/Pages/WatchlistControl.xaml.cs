@@ -18,6 +18,7 @@ using static eft_dma_radar.Tarkov.EFTPlayer.Player;
 using static SDK.Enums;
 using Button = System.Windows.Controls.Button;
 using Clipboard = System.Windows.Clipboard;
+using MenuItem = System.Windows.Controls.MenuItem;
 using MessageBox = eft_dma_shared.Common.UI.Controls.MessageBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
