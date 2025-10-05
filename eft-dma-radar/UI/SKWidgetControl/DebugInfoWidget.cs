@@ -19,7 +19,7 @@ namespace eft_dma_radar.UI.SKWidgetControl
         private int _chamsExpectedCount => ChamsManager.ExpectedMaterialCount;
         private bool _nativeHookInitialized => NativeHook.Initialized;
         private bool _inputManagerInitialized => InputManager.IsReady;
-        private int _lootCount => Memory.Loot?.UnfilteredLoot.Count ?? 0;
+        private int _lootCount => Memory.Loot?.UnfilteredLoot?.Count ?? 0;
         private int _playerCount => Memory.Players?.Count ?? 0;
         private string _aimbotTarget => Memory.Players?.FirstOrDefault(p => p.IsAimbotLocked)?.Name ?? "None";
 

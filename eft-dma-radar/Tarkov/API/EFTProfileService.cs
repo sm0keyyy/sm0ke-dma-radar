@@ -222,7 +222,7 @@ namespace eft_dma_radar.Tarkov.API
                     return null;
 
                 string loadedKey;
-
+                    
                 if (ApiKeyStore.TryLoadApiKey(out loadedKey))
                     LoneLogging.WriteLine($"Got API Key{loadedKey}");
 

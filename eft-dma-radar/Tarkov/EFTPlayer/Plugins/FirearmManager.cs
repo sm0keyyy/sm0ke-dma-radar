@@ -1,5 +1,6 @@
 ﻿using eft_dma_radar.UI.ESP;
 using eft_dma_radar.UI.Misc;
+using eft_dma_radar.UI.Pages;
 using eft_dma_shared.Common.DMA.ScatterAPI;
 using eft_dma_shared.Common.ESP;
 using eft_dma_shared.Common.Misc;
@@ -8,6 +9,8 @@ using eft_dma_shared.Common.Misc.Pools;
 using eft_dma_shared.Common.Players;
 using eft_dma_shared.Common.Unity;
 using eft_dma_shared.Common.Unity.Collections;
+using System.Windows;
+using Application = System.Windows.Application;
 
 namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
 {
@@ -20,6 +23,7 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
 
         private readonly LocalPlayer _localPlayer;
         private CachedHandsInfo _hands;
+        private string _lastWeaponIdFilterCreated;
 
         /// <summary>
         /// Returns the Hands Controller Address and if the held item is a weapon.
@@ -77,13 +81,37 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
                 var hands = ILocalPlayer.HandsController;
                 if (!hands.IsValidVirtualAddress())
                     return;
+
                 if (hands != _hands)
                 {
+                    var previousWeaponId = _hands?.ItemId;
+
                     _hands = null;
                     ResetFireport();
                     Magazine = new(_localPlayer);
                     _hands = GetHandsInfo(hands);
+
+                    if (_hands.IsWeapon &&
+                        Config.AutoAmmoFilter &&
+                        _hands.ItemId != previousWeaponId &&
+                        _hands.ItemId != _lastWeaponIdFilterCreated)
+                    {
+                        _lastWeaponIdFilterCreated = _hands.ItemId;
+
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                LootFilterControl.CreateWeaponAmmoGroup();
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            LoneLogging.WriteLine($"[FirearmManager] ERROR updating ammo filter: {ex}");
+                        }
+                    }
                 }
+
                 if (_hands.IsWeapon)
                 {
                     if (CameraManagerBase.EspRunning && Config.ESP.ShowMagazine)
@@ -177,7 +205,7 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
             ArgumentOutOfRangeException.ThrowIfNotEqual(itemId.Length, 24, nameof(itemId));
             if (!EftDataManager.AllItems.TryGetValue(itemId, out var heldItem))
                 return new(handsController);
-            return new(handsController, heldItem, itemBase);
+            return new(handsController, heldItem, itemBase, itemId);
         }
 
         #region Magazine Info
@@ -440,10 +468,17 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
 
             private readonly ulong _hands;
             private readonly TarkovMarketItem _item;
+
             /// <summary>
             /// Address of currently held item (if any).
             /// </summary>
             public ulong ItemAddr { get; }
+
+            /// <summary>
+            /// BSG Item ID (24 character string).
+            /// </summary>
+            public string ItemId { get; }
+
             /// <summary>
             /// True if the Item being currently held (if any) is a weapon, otherwise False.
             /// </summary>
@@ -454,11 +489,12 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
                 _hands = handsController;
             }
 
-            public CachedHandsInfo(ulong handsController, TarkovMarketItem item, ulong itemAddr)
+            public CachedHandsInfo(ulong handsController, TarkovMarketItem item, ulong itemAddr, string itemId)
             {
                 _hands = handsController;
                 _item = item;
                 ItemAddr = itemAddr;
+                ItemId = itemId;
             }
         }
 

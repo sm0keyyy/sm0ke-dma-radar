@@ -401,10 +401,28 @@ namespace eft_dma_radar.UI.Misc
         public float UIScale { get; set; } = 1.0f;
 
         /// <summary>
+        /// Controls how much zoom moves toward mouse cursor
+        /// </summary>
+        [JsonPropertyName("zoomToMouse")]
+        public float ZoomToMouse { get; set; } = 5.0f;
+
+        /// <summary>
+        /// How much zoom changes per scroll step
+        /// </summary>
+        [JsonPropertyName("zoomStep")]
+        public int ZoomStep{ get; set; } = 5;
+
+        /// <summary>
         /// Enable 'Battle Mode', hides all non-essential information.
         /// </summary>
         [JsonPropertyName("battleMode")]
         public bool BattleMode { get; set; } = false;
+
+        /// <summary>
+        /// Enable automation of generating ammo filter for active weapon
+        /// </summary>
+        [JsonPropertyName("autoAmmoFilter")]
+        public bool AutoAmmoFilter { get; set; } = false;
 
         /// <summary>
         /// Size of the Radar Window.

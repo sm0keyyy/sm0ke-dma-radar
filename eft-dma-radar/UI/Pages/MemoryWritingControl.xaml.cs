@@ -337,7 +337,7 @@ namespace eft_dma_radar.UI.Pages
 
         private void LoadAllSettings()
         {
-            var cfg = Config.MemWrites;
+            var cfg = MemWrites.Config;
 
             // Global Settings
             chkMasterSwitch.IsChecked = cfg.MemWritesEnabled;
@@ -423,7 +423,7 @@ namespace eft_dma_radar.UI.Pages
 
             try
             {
-                var cfg = Config.MemWrites;
+                var cfg = MemWrites.Config;
                 var aimbotConfig = cfg.Aimbot;
                 chkEnableAimbot.IsChecked = aimbotConfig.Enabled;
                 var rdb = (aimbotConfig.TargetingMode == AimbotTargetingMode.FOV) ? rdbFOV : rdbCQB;
@@ -463,11 +463,11 @@ namespace eft_dma_radar.UI.Pages
         {
             var optionsToUpdate = new Dictionary<string, bool>
             {
-                ["Safe Lock"] = Config.MemWrites.Aimbot.SilentAim.SafeLock,
-                ["Disable Re-Lock"] = Config.MemWrites.Aimbot.DisableReLock,
-                ["Auto Bone"] = Config.MemWrites.Aimbot.SilentAim.AutoBone,
-                ["Headshot AI"] = Config.MemWrites.Aimbot.HeadshotAI,
-                ["Random Bone"] = Config.MemWrites.Aimbot.RandomBone.Enabled
+                ["Safe Lock"] = MemWrites.Config.Aimbot.SilentAim.SafeLock,
+                ["Disable Re-Lock"] = MemWrites.Config.Aimbot.DisableReLock,
+                ["Auto Bone"] = MemWrites.Config.Aimbot.SilentAim.AutoBone,
+                ["Headshot AI"] = MemWrites.Config.Aimbot.HeadshotAI,
+                ["Random Bone"] = MemWrites.Config.Aimbot.RandomBone.Enabled
             };
 
             foreach (CheckComboBoxItem item in ccbAimbotOptions.Items)
@@ -539,8 +539,8 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleAimbotControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.Aimbot.Enabled;
-            var rndBoneEnabled = Config.MemWrites.Aimbot.RandomBone.Enabled;
+            var enableControl = memWrites && MemWrites.Config.Aimbot.Enabled;
+            var rndBoneEnabled = MemWrites.Config.Aimbot.RandomBone.Enabled;
 
             chkEnableAimbot.IsEnabled = memWrites;
             rdbFOV.IsEnabled = enableControl;
@@ -555,8 +555,8 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleAimbotRandomBoneControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.Aimbot.Enabled;
-            var rndBoneEnabled = Config.MemWrites.Aimbot.RandomBone.Enabled;
+            var enableControl = memWrites && MemWrites.Config.Aimbot.Enabled;
+            var rndBoneEnabled = MemWrites.Config.Aimbot.RandomBone.Enabled;
 
             cboTargetBone.IsEnabled = enableControl && !rndBoneEnabled;
 
@@ -570,7 +570,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleNoRecoilControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.NoRecoil;
+            var enableControl = memWrites && MemWrites.Config.NoRecoil;
 
             chkNoRecoil.IsEnabled = memWrites;
             btnNoRecoilConfig.IsEnabled = enableControl;
@@ -584,7 +584,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleMoveSpeedControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.MoveSpeed.Enabled;
+            var enableControl = memWrites && MemWrites.Config.MoveSpeed.Enabled;
 
             chkMoveSpeed.IsEnabled = memWrites;
             btnMoveSpeedConfig.IsEnabled = enableControl;
@@ -597,7 +597,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleWideLeanControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.WideLean.Enabled;
+            var enableControl = memWrites && MemWrites.Config.WideLean.Enabled;
 
             chkWideLean.IsEnabled = memWrites;
             btnWideLeanConfig.IsEnabled = enableControl;
@@ -610,7 +610,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleLongJumpControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.LongJump.Enabled;
+            var enableControl = memWrites && MemWrites.Config.LongJump.Enabled;
 
             chkLongJump.IsEnabled = memWrites;
             btnLongJumpConfig.IsEnabled = enableControl;
@@ -623,7 +623,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleBigHeadControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.BigHead.Enabled;
+            var enableControl = memWrites && MemWrites.Config.BigHead.Enabled;
 
             chkBigHeads.IsEnabled = memWrites;
             btnBigHeadsConfig.IsEnabled = enableControl;
@@ -635,7 +635,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleVisCheckControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.VisCheck.Enabled;
+            var enableControl = memWrites && MemWrites.Config.VisCheck.Enabled;
 
             btnVisCheckConfig.IsEnabled = enableControl;
             sldrVisCheckLowDistance.IsEnabled = enableControl;
@@ -650,7 +650,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleTimeOfDayControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.TimeOfDay.Enabled;
+            var enableControl = memWrites && MemWrites.Config.TimeOfDay.Enabled;
 
             chkTimeOfDay.IsEnabled = memWrites;
             btnTimeOfDayConfig.IsEnabled = enableControl;
@@ -663,7 +663,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleFullBrightControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.FullBright.Enabled;
+            var enableControl = memWrites && MemWrites.Config.FullBright.Enabled;
 
             chkFullBright.IsEnabled = memWrites;
             btnFullBrightConfig.IsEnabled = enableControl;
@@ -676,7 +676,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleLTWControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.LootThroughWalls.Enabled;
+            var enableControl = memWrites && MemWrites.Config.LootThroughWalls.Enabled;
 
             chkLTW.IsEnabled = memWrites;
             btnLTWConfig.IsEnabled = enableControl;
@@ -688,7 +688,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleSilentLootControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.SilentLoot.Enabled;
+            var enableControl = memWrites && MemWrites.Config.SilentLoot.Enabled;
 
             chkSilentLoot.IsEnabled = memWrites;
             btnSilentLootConfig.IsEnabled = enableControl;
@@ -702,7 +702,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleExtendedReachControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.ExtendedReach.Enabled;
+            var enableControl = memWrites && MemWrites.Config.ExtendedReach.Enabled;
 
             chkExtendedReach.IsEnabled = memWrites;
             btnExtendedReachConfig.IsEnabled = enableControl;
@@ -715,7 +715,7 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleAdvMemWritingControls()
         {
             var memWritingEnabled = MemWrites.Enabled;
-            var advMemWrites = Config.MemWrites.AdvancedMemWrites;
+            var advMemWrites = MemWrites.AdvEnabled;
             var enabled = (memWritingEnabled && advMemWrites);
 
             // General Settings
@@ -734,7 +734,7 @@ namespace eft_dma_radar.UI.Pages
             // Camera
             chkDisableScreenEffects.IsEnabled = enabled;
             chkFOVChanger.IsEnabled = enabled;
-            btnFOVConfig.IsEnabled = (enabled && Config.MemWrites.FOV.Enabled);
+            btnFOVConfig.IsEnabled = (enabled && MemWrites.Config.FOV.Enabled);
 
             // Misc
             chkStreamerMode.IsEnabled = enabled;
@@ -757,10 +757,10 @@ namespace eft_dma_radar.UI.Pages
         private void ToggleFOVControls()
         {
             var memWrites = MemWrites.Enabled;
-            var enableControl = memWrites && Config.MemWrites.FOV.Enabled;
+            var enableControl = memWrites && MemWrites.Config.FOV.Enabled;
 
-            chkFOVChanger.IsEnabled = memWrites && Config.MemWrites.AdvancedMemWrites;
-            btnFOVConfig.IsEnabled = enableControl && Config.MemWrites.AdvancedMemWrites;
+            chkFOVChanger.IsEnabled = memWrites && MemWrites.Config.AdvancedMemWrites;
+            btnFOVConfig.IsEnabled = enableControl && MemWrites.Config.AdvancedMemWrites;
             sldrFOVBase.IsEnabled = enableControl;
             sldrADSFOV.IsEnabled = enableControl;
             sldrTPPFOV.IsEnabled = enableControl;
@@ -772,48 +772,45 @@ namespace eft_dma_radar.UI.Pages
 
         public void FeatureInstanceCheck()
         {
-            var cfg = Config.MemWrites;
-            var memWritesOn = MemWrites.Enabled;
-            var advMemWritesOn = memWritesOn && cfg.AdvancedMemWrites;
+            var cfg = MemWrites.Config;
 
-            MemPatchFeature<FOVChanger>.Instance.Enabled = (advMemWritesOn && cfg.FOV.Enabled);
-
-            MemWriteFeature<Aimbot>.Instance.Enabled = (memWritesOn && cfg.Aimbot.Enabled);
-            MemPatchFeature<NoWepMalfPatch>.Instance.Enabled = (memWritesOn && cfg.NoWeaponMalfunctions);
-            MemPatchFeature<FastLoadUnload>.Instance.Enabled = (memWritesOn && cfg.FastLoadUnload);
-            MemWriteFeature<FastWeaponOps>.Instance.Enabled = (memWritesOn && cfg.FastWeaponOps);
-            MemWriteFeature<DisableWeaponCollision>.Instance.Enabled = (memWritesOn && cfg.DisableWeaponCollision);
-            MemPatchFeature<RemoveableAttachments>.Instance.Enabled = (advMemWritesOn && cfg.RemoveableAttachments);
-            MemWriteFeature<NoRecoil>.Instance.Enabled = (memWritesOn && cfg.NoRecoil);
-            MemWriteFeature<InfStamina>.Instance.Enabled = (memWritesOn && cfg.InfStamina);
-            MemWriteFeature<MoveSpeed>.Instance.Enabled = (memWritesOn && cfg.MoveSpeed.Enabled);
-            MemWriteFeature<FastDuck>.Instance.Enabled = (memWritesOn && cfg.FastDuck);
-            MemWriteFeature<MuleMode>.Instance.Enabled = (memWritesOn && cfg.MuleMode);
-            MemWriteFeature<NoInertia>.Instance.Enabled = (memWritesOn && cfg.NoInertia);
-            MemWriteFeature<TimeOfDay>.Instance.Enabled = (memWritesOn && cfg.TimeOfDay.Enabled);
-            MemWriteFeature<LootThroughWalls>.Instance.Enabled = (memWritesOn && cfg.LootThroughWalls.Enabled);
-            MemWriteFeature<ExtendedReach>.Instance.Enabled = (memWritesOn && cfg.ExtendedReach.Enabled);
-            MemWriteFeature<FullBright>.Instance.Enabled = (memWritesOn && cfg.FullBright.Enabled);
-            MemPatchFeature<DisableShadows>.Instance.Enabled = (advMemWritesOn && cfg.DisableShadows);
-            MemWriteFeature<DisableGrass>.Instance.Enabled = (memWritesOn && cfg.DisableGrass);
-            MemWriteFeature<ClearWeather>.Instance.Enabled = (memWritesOn && cfg.ClearWeather);
-            MemWriteFeature<NoVisor>.Instance.Enabled = (memWritesOn && cfg.NoVisor);
-            MemWriteFeature<ThermalVision>.Instance.Enabled = (memWritesOn && cfg.ThermalVision);
-            MemWriteFeature<NightVision>.Instance.Enabled = (memWritesOn && cfg.NightVision);
-            MemWriteFeature<WideLean>.Instance.Enabled = (memWritesOn && cfg.WideLean.Enabled);
-            MemWriteFeature<LongJump>.Instance.Enabled = (memWritesOn && cfg.LongJump.Enabled);
-            MemWriteFeature<ThirdPerson>.Instance.Enabled = (memWritesOn && cfg.ThirdPerson);
-            MemWriteFeature<OwlMode>.Instance.Enabled = (memWritesOn && cfg.OwlMode);
-            MemWriteFeature<DisableHeadBobbing>.Instance.Enabled = (memWritesOn && cfg.DisableHeadBobbing);
-            MemPatchFeature<StreamerMode>.Instance.Enabled = (advMemWritesOn && cfg.StreamerMode);
-            MemPatchFeature<HideRaidCode>.Instance.Enabled = (advMemWritesOn && cfg.HideRaidCode);
-            MemWriteFeature<InstantPlant>.Instance.Enabled = (memWritesOn && cfg.InstantPlant);
-            MemWriteFeature<MedPanel>.Instance.Enabled = (memWritesOn && cfg.MedPanel);
-            MemWriteFeature<DisableInventoryBlur>.Instance.Enabled = (memWritesOn && cfg.DisableInventoryBlur);
-            MemPatchFeature<DisableScreenEffects>.Instance.Enabled = (advMemWritesOn && cfg.DisableScreenEffects);
-            MemWriteFeature<BigHead>.Instance.Enabled = (memWritesOn && cfg.BigHead.Enabled);
-            MemPatchFeature<SilentLoot>.Instance.Enabled = (memWritesOn && cfg.SilentLoot.Enabled);
-            MemPatchFeature<VisibilityLinecast>.Instance.Enabled = (memWritesOn && cfg.VisCheck.Enabled);
+            MemPatchFeature<FOVChanger>.Instance.Enabled = cfg.FOV.Enabled;
+            MemWriteFeature<Aimbot>.Instance.Enabled = cfg.Aimbot.Enabled;
+            MemPatchFeature<NoWepMalfPatch>.Instance.Enabled = cfg.NoWeaponMalfunctions;
+            MemPatchFeature<FastLoadUnload>.Instance.Enabled = cfg.FastLoadUnload;
+            MemWriteFeature<FastWeaponOps>.Instance.Enabled = cfg.FastWeaponOps;
+            MemWriteFeature<DisableWeaponCollision>.Instance.Enabled = cfg.DisableWeaponCollision;
+            MemPatchFeature<RemoveableAttachments>.Instance.Enabled = cfg.RemoveableAttachments;
+            MemWriteFeature<NoRecoil>.Instance.Enabled = cfg.NoRecoil;
+            MemWriteFeature<InfStamina>.Instance.Enabled = cfg.InfStamina;
+            MemWriteFeature<MoveSpeed>.Instance.Enabled = cfg.MoveSpeed.Enabled;
+            MemWriteFeature<FastDuck>.Instance.Enabled = cfg.FastDuck;
+            MemWriteFeature<MuleMode>.Instance.Enabled = cfg.MuleMode;
+            MemWriteFeature<NoInertia>.Instance.Enabled = cfg.NoInertia;
+            MemWriteFeature<TimeOfDay>.Instance.Enabled = cfg.TimeOfDay.Enabled;
+            MemWriteFeature<LootThroughWalls>.Instance.Enabled = cfg.LootThroughWalls.Enabled;
+            MemWriteFeature<ExtendedReach>.Instance.Enabled = cfg.ExtendedReach.Enabled;
+            MemWriteFeature<FullBright>.Instance.Enabled = cfg.FullBright.Enabled;
+            MemPatchFeature<DisableShadows>.Instance.Enabled = cfg.DisableShadows;
+            MemWriteFeature<DisableGrass>.Instance.Enabled = cfg.DisableGrass;
+            MemWriteFeature<ClearWeather>.Instance.Enabled = cfg.ClearWeather;
+            MemWriteFeature<NoVisor>.Instance.Enabled = cfg.NoVisor;
+            MemWriteFeature<ThermalVision>.Instance.Enabled = cfg.ThermalVision;
+            MemWriteFeature<NightVision>.Instance.Enabled = cfg.NightVision;
+            MemWriteFeature<WideLean>.Instance.Enabled = cfg.WideLean.Enabled;
+            MemWriteFeature<LongJump>.Instance.Enabled = cfg.LongJump.Enabled;
+            MemWriteFeature<ThirdPerson>.Instance.Enabled = cfg.ThirdPerson;
+            MemWriteFeature<OwlMode>.Instance.Enabled = cfg.OwlMode;
+            MemWriteFeature<DisableHeadBobbing>.Instance.Enabled = cfg.DisableHeadBobbing;
+            MemPatchFeature<StreamerMode>.Instance.Enabled = cfg.StreamerMode;
+            MemPatchFeature<HideRaidCode>.Instance.Enabled = cfg.HideRaidCode;
+            MemWriteFeature<InstantPlant>.Instance.Enabled = cfg.InstantPlant;
+            MemWriteFeature<MedPanel>.Instance.Enabled = cfg.MedPanel;
+            MemWriteFeature<DisableInventoryBlur>.Instance.Enabled = cfg.DisableInventoryBlur;
+            MemPatchFeature<DisableScreenEffects>.Instance.Enabled = cfg.DisableScreenEffects;
+            MemWriteFeature<BigHead>.Instance.Enabled = cfg.BigHead.Enabled;
+            MemPatchFeature<SilentLoot>.Instance.Enabled = cfg.SilentLoot.Enabled;
+            MemPatchFeature<VisibilityLinecast>.Instance.Enabled = cfg.VisCheck.Enabled;
         }
 
         private void ToggleSettingsPanel(UIElement panel)
@@ -851,7 +848,7 @@ namespace eft_dma_radar.UI.Pages
                 switch (tag)
                 {
                     case "MemWritesEnabled":
-                        if (value && !Config.MemWrites.MemWritesEnabled)
+                        if (value && !MemWrites.Config.MemWritesEnabled)
                         {
                             shouldProceed = ConfirmMemoryWritingEnable(false);
                             if (!shouldProceed)
@@ -865,7 +862,7 @@ namespace eft_dma_radar.UI.Pages
                         }
                         break;
                     case "AdvancedMemWrites":
-                        if (value && !Config.MemWrites.AdvancedMemWrites)
+                        if (value && !MemWrites.Config.AdvancedMemWrites)
                         {
                             shouldProceed = ConfirmMemoryWritingEnable(true);
                             if (!shouldProceed)
@@ -885,200 +882,162 @@ namespace eft_dma_radar.UI.Pages
                 switch (tag)
                 {
                     case "MemWritesEnabled":
-                        Config.MemWrites.MemWritesEnabled = value;
+                        //Config.MemWrites.MemWritesEnabled = value;
                         MemWrites.Enabled = value;
                         ToggleMemWritingControls();
                         break;
                     case "AdvancedMemWrites":
-                        Config.MemWrites.AdvancedMemWrites = value;
+                        MemWrites.AdvEnabled = value;
                         ToggleAdvMemWritingControls();
                         break;
                     case "AntiPage":
-                        Config.MemWrites.AntiPage = value;
+                        MemWrites.Config.AntiPage = value;
                         break;
                     case "RageMode":
-                        Config.MemWrites.RageMode = value;
                         MemWriteFeature<RageMode>.Instance.Enabled = value;
                         break;
                     case "EnableAimbot":
-                        Config.MemWrites.Aimbot.Enabled = value;
                         MemWriteFeature<Aimbot>.Instance.Enabled = value;
                         ToggleAimbotControls();
                         break;
                     case "AimbotSafeLock":
-                        Config.MemWrites.Aimbot.SilentAim.SafeLock = value;
+                        MemWrites.Config.Aimbot.SilentAim.SafeLock = value;
                         break;
                     case "AimbotAutoBone":
-                        Config.MemWrites.Aimbot.SilentAim.AutoBone = value;
+                        MemWrites.Config.Aimbot.SilentAim.AutoBone = value;
                         break;
                     case "AimbotDisableReLock":
-                        Config.MemWrites.Aimbot.DisableReLock = value;
+                        MemWrites.Config.Aimbot.DisableReLock = value;
                         break;
                     case "HeadshotAI":
-                        Config.MemWrites.Aimbot.HeadshotAI = value;
+                        MemWrites.Config.Aimbot.HeadshotAI = value;
                         break;
                     case "AimbotRandomBone":
-                        Config.MemWrites.Aimbot.RandomBone.Enabled = value;
+                        MemWrites.Config.Aimbot.RandomBone.Enabled = value;
                         ToggleAimbotRandomBoneControls();
                         break;
                     case "NoWeaponMalfunctions":
-                        Config.MemWrites.NoWeaponMalfunctions = value;
                         MemPatchFeature<NoWepMalfPatch>.Instance.Enabled = value;
                         break;
                     case "MagDrills":
-                        Config.MemWrites.FastLoadUnload = value;
                         MemPatchFeature<FastLoadUnload>.Instance.Enabled = value;
                         break;
                     case "FastWeaponOps":
-                        Config.MemWrites.FastWeaponOps = value;
                         MemWriteFeature<FastWeaponOps>.Instance.Enabled = value;
                         break;
                     case "DisableWeaponCollision":
-                        MemWrites.Config.DisableWeaponCollision = value;
                         MemWriteFeature<DisableWeaponCollision>.Instance.Enabled = value;
                         break;
                     case "RemoveableAttachments":
-                        Config.MemWrites.RemoveableAttachments = value;
                         MemPatchFeature<RemoveableAttachments>.Instance.Enabled = value;
                         break;
                     case "NoRecoil":
-                        Config.MemWrites.NoRecoil = value;
                         MemWriteFeature<NoRecoil>.Instance.Enabled = value;
                         ToggleNoRecoilControls();
                         break;
                     case "InfiniteStamina":
-                        Config.MemWrites.InfStamina = value;
                         MemWriteFeature<InfStamina>.Instance.Enabled = value;
                         break;
                     case "MoveSpeed":
-                        Config.MemWrites.MoveSpeed.Enabled = value;
                         MemWriteFeature<MoveSpeed>.Instance.Enabled = value;
                         ToggleMoveSpeedControls();
                         break;
                     case "TimeOfDay":
-                        Config.MemWrites.TimeOfDay.Enabled = value;
                         MemWriteFeature<TimeOfDay>.Instance.Enabled = value;
                         ToggleTimeOfDayControls();
                         break;
                     case "DisableShadows":
-                        MemWrites.Config.DisableShadows = value;
                         MemPatchFeature<DisableShadows>.Instance.Enabled = value;
                         break;
                     case "DisableGrass":
-                        MemWrites.Config.DisableGrass = value;
                         MemWriteFeature<DisableGrass>.Instance.Enabled = value;
                         break;
                     case "ClearWeather":
-                        MemWrites.Config.ClearWeather = value;
                         MemWriteFeature<ClearWeather>.Instance.Enabled = value;
                         break;
                     case "LTW":
-                        Config.MemWrites.LootThroughWalls.Enabled = value;
                         MemWriteFeature<LootThroughWalls>.Instance.Enabled = value;
                         ToggleLTWControls();
                         break;
                     case "SilentLoot":
-                        Config.MemWrites.SilentLoot.Enabled = value;
                         MemPatchFeature<SilentLoot>.Instance.Enabled = value;
                         ToggleSilentLootControls();
                         break;
                     case "ExtendedReach":
-                        Config.MemWrites.ExtendedReach.Enabled = value;
                         MemWriteFeature<ExtendedReach>.Instance.Enabled = value;
                         ToggleExtendedReachControls();
                         break;
                     case "FullBright":
-                        Config.MemWrites.FullBright.Enabled = value;
                         MemWriteFeature<FullBright>.Instance.Enabled = value;
                         ToggleFullBrightControls();
                         break;
                     case "NoVisor":
-                        MemWrites.Config.NoVisor = value;
                         MemWriteFeature<NoVisor>.Instance.Enabled = value;
                         break;
                     case "ThermalVision":
-                        MemWrites.Config.ThermalVision = value;
                         MemWriteFeature<ThermalVision>.Instance.Enabled = value;
                         break;
                     case "NightVision":
-                        MemWrites.Config.NightVision = value;
                         MemWriteFeature<NightVision>.Instance.Enabled = value;
                         break;
                     case "WideLean":
-                        MemWrites.Config.WideLean.Enabled = value;
                         MemWriteFeature<WideLean>.Instance.Enabled = value;
                         ToggleWideLeanControls();
                         break;
                     case "ThirdPerson":
-                        MemWrites.Config.ThirdPerson = value;
                         MemWriteFeature<ThirdPerson>.Instance.Enabled = value;
                         break;
                     case "OwlMode":
-                        MemWrites.Config.OwlMode = value;
                         MemWriteFeature<OwlMode>.Instance.Enabled = value;
                         break;
                     case "FOVChanger":
-                        Config.MemWrites.FOV.Enabled = value;
                         MemPatchFeature<FOVChanger>.Instance.Enabled = value;
                         ToggleFOVControls();
                         break;
                     case "StreamerMode":
-                        MemWrites.Config.StreamerMode = value;
                         MemPatchFeature<StreamerMode>.Instance.Enabled = value;
                         break;
                     case "HideRaidCode":
-                        MemWrites.Config.HideRaidCode = value;
                         MemPatchFeature<HideRaidCode>.Instance.Enabled = value;
                         break;
                     case "InstantPlant":
-                        MemWrites.Config.InstantPlant = value;
                         MemWriteFeature<InstantPlant>.Instance.Enabled = value;
                         break;
                     case "DisableInventoryBlur":
-                        MemWrites.Config.DisableInventoryBlur = value;
                         MemWriteFeature<DisableInventoryBlur>.Instance.Enabled = value;
                         break;
                     case "MedPanel":
-                        MemWrites.Config.MedPanel = value;
                         MemWriteFeature<MedPanel>.Instance.Enabled = value;
                         break;
                     case "DisableScreenEffects":
-                        MemWrites.Config.DisableScreenEffects = value;
                         MemPatchFeature<DisableScreenEffects>.Instance.Enabled = value;
                         break;
                     case "DisableHeadBobbing":
-                        MemWrites.Config.DisableHeadBobbing = value;
                         MemWriteFeature<DisableHeadBobbing>.Instance.Enabled = value;
                         break;
                     case "FastDuck":
-                        MemWrites.Config.FastDuck = value;
                         MemWriteFeature<FastDuck>.Instance.Enabled = value;
                         break;
                     case "MuleMode":
-                        MemWrites.Config.MuleMode = value;
                         MemWriteFeature<MuleMode>.Instance.Enabled = value;
                         break;
                     case "NoInertia":
-                        MemWrites.Config.NoInertia = value;
                         MemWriteFeature<NoInertia>.Instance.Enabled = value;
                         break;
                     case "LongJump":
-                        MemWrites.Config.LongJump.Enabled = value;
                         MemWriteFeature<LongJump>.Instance.Enabled = value;
                         ToggleLongJumpControls();
                         break;
                     case "BigHeads":
-                        MemWrites.Config.BigHead.Enabled = value;
                         MemWriteFeature<BigHead>.Instance.Enabled = value;
                         ToggleBigHeadControls();
                         break;
                     case "VisCheck":
-                        MemWrites.Config.VisCheck.Enabled = value;
                         MemPatchFeature<VisibilityLinecast>.Instance.Enabled = value;
                         ToggleVisCheckControls();
                         break;
                     case "IgnoreAi":
-                        Config.MemWrites.VisCheck.IgnoreAi = value;
+                        MemWrites.Config.VisCheck.IgnoreAi = value;
                         break;
                 }
 
@@ -1098,16 +1057,16 @@ namespace eft_dma_radar.UI.Pages
                 switch (tag)
                 {
                     case "AimbotFOV":
-                        Config.MemWrites.Aimbot.FOV = floatValue;
+                        MemWrites.Config.Aimbot.FOV = floatValue;
                         break;
                     case "AimbotDistance":
-                        Config.MemWrites.Aimbot.Distance = floatValue;
+                        MemWrites.Config.Aimbot.Distance = floatValue;
                         break;
                     case "NoRecoilAmount":
-                        Config.MemWrites.NoRecoilAmount = intValue;
+                        MemWrites.Config.NoRecoilAmount = intValue;
                         break;
                     case "NoSwayAmount":
-                        Config.MemWrites.NoSwayAmount = intValue;
+                        MemWrites.Config.NoSwayAmount = intValue;
                         break;
 
                     case "RNGHead":
@@ -1115,7 +1074,7 @@ namespace eft_dma_radar.UI.Pages
                     case "RNGArms":
                     case "RNGLegs":
                         {
-                            var rng = Config.MemWrites.Aimbot.RandomBone;
+                            var rng = MemWrites.Config.Aimbot.RandomBone;
 
                             switch (tag)
                             {
@@ -1169,55 +1128,55 @@ namespace eft_dma_radar.UI.Pages
                             break;
                         }
                     case "LTWZoom":
-                        Config.MemWrites.LootThroughWalls.ZoomAmount = roundedValue;
+                        MemWrites.Config.LootThroughWalls.ZoomAmount = roundedValue;
                         break;
                     case "SilentLootDistance":
-                        Config.MemWrites.SilentLoot.Distance = roundedValue;
+                        MemWrites.Config.SilentLoot.Distance = roundedValue;
                         break;
                     case "SilentLootMaxDistance":
-                        Config.MemWrites.SilentLoot.MaxDistance = roundedValue;
+                        MemWrites.Config.SilentLoot.MaxDistance = roundedValue;
                         break;
                     case "ExtendedReachDistance":
-                        Config.MemWrites.ExtendedReach.Distance = roundedValue;
+                        MemWrites.Config.ExtendedReach.Distance = roundedValue;
                         break;
                     case "TimeOfDayHour":
-                        Config.MemWrites.TimeOfDay.Hour = intValue;
+                        MemWrites.Config.TimeOfDay.Hour = intValue;
                         break;
                     case "FullBrightIntensity":
-                        Config.MemWrites.FullBright.Intensity = floatValue;
+                        MemWrites.Config.FullBright.Intensity = floatValue;
                         break;
                     case "LeanAmt":
-                        Config.MemWrites.WideLean.Amount = roundedValue;
+                        MemWrites.Config.WideLean.Amount = roundedValue;
                         break;
                     case "JumpMultiplier":
-                        Config.MemWrites.LongJump.Multiplier = roundedValue;
+                        MemWrites.Config.LongJump.Multiplier = roundedValue;
                         break;
                     case "MoveSpeedMultiplier":
-                        Config.MemWrites.MoveSpeed.Multiplier = floatValue;
+                        MemWrites.Config.MoveSpeed.Multiplier = floatValue;
                         break;
                     case "BigHeadScale":
-                        Config.MemWrites.BigHead.Scale = floatValue;
+                        MemWrites.Config.BigHead.Scale = floatValue;
                         break;
                     case "VisLowDist":
-                        Config.MemWrites.VisCheck.LowDist = floatValue;
+                        MemWrites.Config.VisCheck.LowDist = floatValue;
                         break;
                     case "VisMidDist":
-                        Config.MemWrites.VisCheck.MidDist = floatValue;
+                        MemWrites.Config.VisCheck.MidDist = floatValue;
                         break;
                     case "VisfarDist":
-                        Config.MemWrites.VisCheck.FarDist = floatValue;
+                        MemWrites.Config.VisCheck.FarDist = floatValue;
                         break;
                     case "FOVBase":
-                        Config.MemWrites.FOV.Base = intValue;
+                        MemWrites.Config.FOV.Base = intValue;
                         break;
                     case "ADSFOV":
-                        Config.MemWrites.FOV.ADS = intValue;
+                        MemWrites.Config.FOV.ADS = intValue;
                         break;
                     case "TPPFOV":
-                        Config.MemWrites.FOV.ThirdPerson = intValue;
+                        MemWrites.Config.FOV.ThirdPerson = intValue;
                         break;
                     case "ZoomFOV":
-                        Config.MemWrites.FOV.InstantZoom = intValue;
+                        MemWrites.Config.FOV.InstantZoom = intValue;
                         break;
                 }
 
@@ -1229,11 +1188,11 @@ namespace eft_dma_radar.UI.Pages
         {
             if (sender is RadioButton rb && rb.Tag is string mode)
             {
-                Config.MemWrites.Aimbot.TargetingMode = mode switch
+                MemWrites.Config.Aimbot.TargetingMode = mode switch
                 {
                     "FOV" => AimbotTargetingMode.FOV,
                     "CQB" => AimbotTargetingMode.CQB,
-                    _ => Config.MemWrites.Aimbot.TargetingMode
+                    _ => MemWrites.Config.Aimbot.TargetingMode
                 };
 
                 Config.Save();
@@ -1296,7 +1255,7 @@ namespace eft_dma_radar.UI.Pages
 
             if (cboTargetBone.SelectedItem is ComboBoxItem selectedItem && selectedItem.Content is string boneName)
             {
-                Config.MemWrites.Aimbot.Bone = boneName switch
+                MemWrites.Config.Aimbot.Bone = boneName switch
                 {
                     "Head" => Bones.HumanHead,
                     "Neck" => Bones.HumanNeck,
@@ -1322,19 +1281,19 @@ namespace eft_dma_radar.UI.Pages
                 switch (option)
                 {
                     case "Safe Lock":
-                        Config.MemWrites.Aimbot.SilentAim.SafeLock = isSelected;
+                        MemWrites.Config.Aimbot.SilentAim.SafeLock = isSelected;
                         break;
                     case "Disable Re-Lock":
-                        Config.MemWrites.Aimbot.DisableReLock = isSelected;
+                        MemWrites.Config.Aimbot.DisableReLock = isSelected;
                         break;
                     case "Auto Bone":
-                        Config.MemWrites.Aimbot.SilentAim.AutoBone = isSelected;
+                        MemWrites.Config.Aimbot.SilentAim.AutoBone = isSelected;
                         break;
                     case "Headshot AI":
-                        Config.MemWrites.Aimbot.HeadshotAI = isSelected;
+                        MemWrites.Config.Aimbot.HeadshotAI = isSelected;
                         break;
                     case "Random Bone":
-                        Config.MemWrites.Aimbot.RandomBone.Enabled = isSelected;
+                        MemWrites.Config.Aimbot.RandomBone.Enabled = isSelected;
                         ToggleAimbotRandomBoneControls();
                         break;
                 }

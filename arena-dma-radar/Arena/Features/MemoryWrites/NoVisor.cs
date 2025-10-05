@@ -30,6 +30,14 @@ namespace arena_dma_radar.Arena.Features.MemoryWrites
                 if (Memory.Game is not LocalGameWorld game)
                     return;
 
+                if (Enabled && _cachedVisorEffect != 0)
+                {
+                    var currentIntensity = Memory.ReadValue<float>(_cachedVisorEffect + Offsets.VisorEffect.Intensity);
+                    var targetIntensity = Enabled ? VISOR_DISABLED : VISOR_ENABLED;
+
+                    _lastEnabledState = (currentIntensity == targetIntensity);
+                }
+
                 if (Enabled != _lastEnabledState)
                 {
                     var visorEffect = GetVisorEffect(game);

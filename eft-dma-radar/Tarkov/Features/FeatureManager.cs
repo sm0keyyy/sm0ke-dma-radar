@@ -186,5 +186,14 @@ namespace eft_dma_radar.Tarkov.Features
             get => Config.MemWritesEnabled;
             set => Config.MemWritesEnabled = value;
         }
+
+        /// <summary>
+        /// True if Advanced Memory Writes are enabled, otherwise False.
+        /// </summary>
+        public static bool AdvEnabled
+        {
+            get => Config.AdvancedMemWrites;
+            set => Config.AdvancedMemWrites = value;
+        }
     }
 }

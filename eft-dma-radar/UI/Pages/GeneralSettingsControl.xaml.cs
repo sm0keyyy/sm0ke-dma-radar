@@ -131,7 +131,8 @@ namespace eft_dma_radar.UI.Pages
         {
             "Connect Groups",
             "Mask Names",
-            "Players on Top"
+            "Players on Top",
+            "Auto Ammo Filter"
         };
 
         private readonly string[] _availableEntityInformation = new string[]
@@ -609,6 +610,8 @@ namespace eft_dma_radar.UI.Pages
 
             nudFPSLimit.ValueChanged += GeneralNUD_ValueChanged;
             sldrUIScale.ValueChanged += GeneralSlider_ValueChanged;
+            sldrZoomToMouse.ValueChanged += GeneralSlider_ValueChanged;
+            sldrZoomStep.ValueChanged += GeneralSlider_ValueChanged;
 
             // Player Information
             cboPlayerType.SelectionChanged += cboPlayerType_SelectionChanged;
@@ -687,6 +690,8 @@ namespace eft_dma_radar.UI.Pages
 
             nudFPSLimit.Value = Config.RadarTargetFPS;
             sldrUIScale.Value = Config.UIScale;
+            sldrZoomToMouse.Value = Config.ZoomToMouse;
+            sldrZoomStep.Value = Config.ZoomStep;
 
             // Monitor
             txtGameHeight.Text = Config.MonitorHeight.ToString();
@@ -871,7 +876,8 @@ namespace eft_dma_radar.UI.Pages
             {
                 ["Connect Groups"] = Config.ConnectGroups,
                 ["Mask Names"] = Config.MaskNames,
-                ["Players on Top"] = Config.PlayersOnTop
+                ["Players on Top"] = Config.PlayersOnTop,
+                ["Auto Ammo Filter"] = Config.AutoAmmoFilter
             };
 
             foreach (CheckComboBoxItem item in ccbGeneralOptions.Items)
@@ -1573,27 +1579,6 @@ namespace eft_dma_radar.UI.Pages
             }
         }
 
-        private void GeneralSlider_ValueChanged(object sender, RoutedEventArgs e)
-        {
-            if (sender is TextValueSlider sldr && sldr.Tag is string tag)
-            {
-                var value = sldr.Value;
-
-                switch (tag)
-                {
-                    case "UIScale":
-                        Config.UIScale = (float)value;
-                        UpdateUIScale();
-                        break;
-                    case "AimlineLength":
-                        SavePlayerTypeSettings();
-                        break;
-                }
-
-                Config.Save();
-            }
-        }
-
         private void GeneralTextbox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (sender is HandyControl.Controls.TextBox txt && txt.Tag is string tag)
@@ -1661,6 +1646,12 @@ namespace eft_dma_radar.UI.Pages
                     case "UIScale":
                         Config.UIScale = floatValue;
                         UpdateUIScale();
+                        break;
+                    case "ZoomToMouse":
+                        Config.ZoomToMouse = floatValue;
+                        break;
+                    case "ZoomStep":
+                        Config.ZoomStep = intValue;
                         break;
                     case "PlayerTypeRenderDistance":
                     case "PlayerTypeAimlineLength":
@@ -1954,6 +1945,9 @@ namespace eft_dma_radar.UI.Pages
                         break;
                     case "Players on Top":
                         Config.PlayersOnTop = isSelected;
+                        break;
+                    case "Auto Ammo Filter":
+                        Config.AutoAmmoFilter = isSelected;
                         break;
                 }
             }

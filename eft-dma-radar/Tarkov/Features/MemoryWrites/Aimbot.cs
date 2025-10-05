@@ -407,10 +407,6 @@ namespace eft_dma_radar.Tarkov.Features.MemoryWrites
                 int weaponVersion = Memory.ReadValue<int>(Cache.ItemBase + Offsets.LootItem.Version);
                 if (Cache.LastWeaponVersion != weaponVersion) // New round in chamber
                 {
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            LootFilterControl.CreateWeaponAmmoGroup();
-                        });
                     var ammoTemplate = FirearmManager.MagazineManager.GetAmmoTemplateFromWeapon(Cache.ItemBase);
                     if (Cache.LoadedAmmo != ammoTemplate)
                     {                        

@@ -64,18 +64,10 @@ namespace eft_dma_radar
         private Point _lastMousePosition;
         private Vector2 _mapPanPosition;
 
-        private const float ZOOM_TO_MOUSE_STRENGTH = 5f; // Controls how much zoom moves toward mouse cursor
-                                                           // 0.0 = Always zoom to center (like old-school map zoom)
-                                                           // 0.5 = Zoom halfway toward mouse
-                                                           // 0.7 = Nice balanced feel (recommended)
-                                                           // 1.0 = Mouse stays at same world position
-                                                           // 1.5 = Overshoot toward mouse (aggressive zoom)
-                                                           // 2.0 = Heavy overshoot (might feel too aggressive)
-
-        private const int ZOOM_STEP = 5; // How much zoom changes per scroll step (1-50 typical range)
-
         private Dictionary<string, PanelInfo> _panels;
 
+        private int _zoomStep => Config.ZoomStep;
+        private float _zoomToMouseStrength => Config.ZoomToMouse;
         private int _fps;
         private int _zoom = 100;
         public int _rotationDegrees = 0;
@@ -504,7 +496,12 @@ namespace eft_dma_radar
                             var questLocations = Memory.QuestManager?.LocationConditions;
                             if (questLocations is not null)
                                 foreach (var loc in questLocations)
+                                {
+                                    if (loc.Outline is not null && !Config.QuestHelper.KillZones)
+                                        continue;
+
                                     loc.Draw(canvas, mapParams, localPlayer);
+                                }
                         }
                     }
 
@@ -854,7 +851,7 @@ namespace eft_dma_radar
 
             var mousePosition = e.GetPosition(skCanvas);
 
-            int zoomChange = e.Delta > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            var zoomChange = e.Delta > 0 ? -_zoomStep : _zoomStep;
             var newZoom = Math.Max(1, Math.Min(200, _zoom + zoomChange));
 
             if (newZoom == _zoom) 
@@ -866,7 +863,7 @@ namespace eft_dma_radar
                 var canvasCenter = new Vector2((float)skCanvas.ActualWidth / 2, (float)skCanvas.ActualHeight / 2);
                 var mouseOffset = new Vector2((float)mousePosition.X - canvasCenter.X, (float)mousePosition.Y - canvasCenter.Y);
 
-                var panAdjustment = mouseOffset * (1 - zoomFactor) * ZOOM_TO_MOUSE_STRENGTH;
+                var panAdjustment = mouseOffset * (1 - zoomFactor) * _zoomToMouseStrength;
                 _mapPanPosition.X += panAdjustment.X;
                 _mapPanPosition.Y += panAdjustment.Y;
             }
@@ -1935,7 +1932,7 @@ namespace eft_dma_radar
                 var canvasCenter = new Vector2((float)skCanvas.ActualWidth / 2, (float)skCanvas.ActualHeight / 2);
                 var mouseOffset = new Vector2((float)mousePosition.Value.X - canvasCenter.X, (float)mousePosition.Value.Y - canvasCenter.Y);
 
-                var panAdjustment = mouseOffset * (1 - zoomFactor) * ZOOM_TO_MOUSE_STRENGTH;
+                var panAdjustment = mouseOffset * (1 - zoomFactor) * _zoomToMouseStrength;
                 _mapPanPosition.X += panAdjustment.X;
                 _mapPanPosition.Y += panAdjustment.Y;
             }

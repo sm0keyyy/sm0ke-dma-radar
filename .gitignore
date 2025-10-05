@@ -12,5 +12,14 @@ arena-dma-radar/arena-dma-radar.csproj.user
 *.tmp
 /eft-dma-radar/.vs
 eft-dma-radar/Properties/PublishProfiles/FolderProfile.pubxml.user
+.github/ISSUE_TEMPLATE/config.yml
+.github/ISSUE_TEMPLATE/outage-report.md
+.github/ISSUE_TEMPLATE/config.yml
+.github/ISSUE_TEMPLATE/config.yml
+eft-dma-radar/Properties/PublishProfiles/eft.pubxml.user
+.github/ISSUE_TEMPLATE/outage-report.md
+.github/ISSUE_TEMPLATE/config.yml
+*.pubxml
+*.user
 /eft-dma-radar/Properties/PublishProfiles
-/arena-dma-radar/Properties/PublishProfiles
+/eft-dma-radar/Properties/PublishProfiles

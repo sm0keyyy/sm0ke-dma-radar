@@ -10,7 +10,6 @@
     <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
     <converters:ColorHexToBrushConverter x:Key="ColorHexToBrushConverter"/>
     <converters:ItemIconConverter x:Key="ItemIconConverter"/>
-    <converters:IntegerNotEqualConverter x:Key="IntegerNotEqualConverter"/>
 
     <BitmapImage x:Key="AppIconImage" UriSource="pack://application:,,,/lone-icon.ico"/>
 

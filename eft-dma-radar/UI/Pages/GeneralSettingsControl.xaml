@@ -119,15 +119,42 @@
                                                 <ColumnDefinition Width="120"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            
                                             <TextBlock Text="UI Scale" Style="{StaticResource LabelText}" 
-                                                       VerticalAlignment="Center" Grid.Column="0"/>
+                                                       VerticalAlignment="Center" Grid.Row="0" Grid.Column="0"/>
                                             <controls:TextValueSlider
                                                 x:Name="sldrUIScale" Tag="UIScale"
                                                 Minimum="0.5" Maximum="5"
                                                 SmallChange="0.1" TickFrequency="0.1"
                                                 IsSnapToTickEnabled="True"
                                                 ContentStringFormat="{}{0:0.0x}" 
-                                                Grid.Column="1"/>
+                                                Grid.Row="0" Grid.Column="1"/>
+
+
+                                            <TextBlock Text="Zoom To Mouse" Style="{StaticResource LabelText}" 
+                                                       VerticalAlignment="Center" Grid.Row="1" Grid.Column="0"/>
+                                            <controls:TextValueSlider
+                                                x:Name="sldrZoomToMouse" Tag="ZoomToMouse"
+                                                Minimum="0.0" Maximum="10.0"
+                                                SmallChange="0.1" TickFrequency="0.1"
+                                                IsSnapToTickEnabled="True"
+                                                ContentStringFormat="{}{0:0.0x}" 
+                                                Grid.Row="1" Grid.Column="1"/>
+
+                                            <TextBlock Text="Zoom Step" Style="{StaticResource LabelText}" 
+                                                       VerticalAlignment="Center" Grid.Row="2" Grid.Column="0"/>
+                                            <controls:TextValueSlider
+                                                x:Name="sldrZoomStep" Tag="ZoomStep"
+                                                Minimum="1" Maximum="20"
+                                                SmallChange="1" TickFrequency="1"
+                                                IsSnapToTickEnabled="True"
+                                                ContentStringFormat="{}{0:0x}" 
+                                                Grid.Row="2" Grid.Column="1"/>
                                         </Grid>
                                     </hc:SimpleStackPanel>
 
