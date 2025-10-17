@@ -392,9 +392,6 @@ namespace eft_dma_radar
                     // Update 'important' / quest item asterisk
                     SKPaints.UpdatePulsingAsteriskColor();
 
-                    // Draw LocalPlayer
-                    localPlayer.Draw(canvas, mapParams, localPlayer);
-
                     // Draw other players
                     var allPlayers = AllPlayers?
                         .Where(x => !x.HasExfild);
@@ -427,8 +424,8 @@ namespace eft_dma_radar
                             }
                         }
                     }
-                    var bosses     = allPlayers?.Where(p => p.Type == PlayerType.AIBoss).ToList();
-                    var nonBosses  = allPlayers?.Where(p => p.Type != PlayerType.AIBoss).ToList();
+                    var bosses = allPlayers?.Where(p => p.Type == PlayerType.AIBoss).ToList();
+                    var nonBosses = allPlayers?.Where(p => p.Type != PlayerType.AIBoss).ToList();
                     if (!Config.PlayersOnTop)
                         if (allPlayers is not null)
                         {
@@ -617,6 +614,9 @@ namespace eft_dma_radar
                             }
                         }
 
+                    // Draw LocalPlayer
+                    localPlayer.Draw(canvas, mapParams, localPlayer);
+
                     closestToMouse?.DrawMouseover(canvas, mapParams, localPlayer); // draw tooltip for object the mouse is closest to
 
                     if (_activePings.Count > 0)
@@ -691,8 +691,8 @@ namespace eft_dma_radar
             PlayerType.PScav => 4,
             PlayerType.AIBoss => 3,
             PlayerType.AIRaider => 2,
-            _                 => 1
-            
+            _ => 1
+
         };
         public static void PingItem(string itemName)
         {
@@ -854,7 +854,7 @@ namespace eft_dma_radar
             var zoomChange = e.Delta > 0 ? -_zoomStep : _zoomStep;
             var newZoom = Math.Max(1, Math.Min(200, _zoom + zoomChange));
 
-            if (newZoom == _zoom) 
+            if (newZoom == _zoom)
                 return;
 
             if (_freeMode && zoomChange < 0)
@@ -1904,8 +1904,8 @@ namespace eft_dma_radar
         {
             bool sendUsage = Config?.SendAnonymousUsage ?? true;
             if (!sendUsage)
-                    return;
-                    
+                return;
+
             Telemetry.Start(appVersion: Program.Version, true);
             Telemetry.BeatNow(Program.Version);
         }
@@ -1977,7 +1977,8 @@ namespace eft_dma_radar
 
         private void OnAllPanelsReady(object sender, EventArgs e)
         {
-            Dispatcher.Invoke(() => {
+            Dispatcher.Invoke(() =>
+            {
                 InitializeToolbar();
                 InitializePanelsCollection();
 
@@ -1996,7 +1997,8 @@ namespace eft_dma_radar
                 RestorePanelPositions();
                 AttachPanelEvents();
 
-                Dispatcher.BeginInvoke(new Action(() => {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
                     ValidateAndFixImportedToolbarPosition();
                     ValidateAndFixImportedPanelPositions();
                     EnsureAllPanelsInBounds();
@@ -2291,7 +2293,8 @@ namespace eft_dma_radar
 
         private void AttachPreviewMouseDown(FrameworkElement panel, Canvas canvas)
         {
-            panel.PreviewMouseDown += (s, e) => {
+            panel.PreviewMouseDown += (s, e) =>
+            {
                 BringPanelToFront(canvas);
             };
         }
@@ -2462,10 +2465,10 @@ namespace eft_dma_radar
 
             MapSetupControl.DragRequested += sharedDragHandler;
             MapSetupControl.CloseRequested += sharedCloseHandler;
-            
-            SettingsSearchControl.DragRequested   += sharedDragHandler;
+
+            SettingsSearchControl.DragRequested += sharedDragHandler;
             SettingsSearchControl.ResizeRequested += sharedResizeHandler;
-            SettingsSearchControl.CloseRequested  += sharedCloseHandler;
+            SettingsSearchControl.CloseRequested += sharedCloseHandler;
         }
 
         private void InitializePanelsCollection()
@@ -2614,7 +2617,7 @@ namespace eft_dma_radar
             if (e.Key == Key.Delete)
             {
                 LootFilterControl.HandleDeleteKey();
-                e.Handled = true; 
+                e.Handled = true;
             }
         }
         #endregion
