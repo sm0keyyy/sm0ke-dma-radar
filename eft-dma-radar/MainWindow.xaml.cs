@@ -1,4 +1,5 @@
-﻿using eft_dma_radar.Tarkov;
+﻿using System.Buffers;
+using eft_dma_radar.Tarkov;
 using eft_dma_radar.Tarkov.API;
 using eft_dma_radar.Tarkov.EFTPlayer;
 using eft_dma_radar.Tarkov.EFTPlayer.Plugins;
@@ -99,6 +100,25 @@ namespace eft_dma_radar
 
         private readonly Stopwatch _statusSw = Stopwatch.StartNew();
         private int _statusOrder = 1;
+
+        // Performance optimization: Cache for MouseOverItems
+        private IEnumerable<IMouseoverEntity> _mouseOverItemsCache;
+        private int _mouseOverItemsCacheFrame;
+        private int _currentFrame;
+
+        // Performance optimization: Cache for map parameters
+        private LoneMapParams _cachedMapParams;
+        private int _cachedZoom = -1;
+        private Vector2 _cachedPosition;
+        private bool _cachedFreeMode;
+
+        // Performance optimization: Reusable paint for pings to avoid allocations
+        private readonly SKPaint _pingPaint = new()
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 4,
+            IsAntialias = true
+        };
 
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
@@ -227,11 +247,16 @@ namespace eft_dma_radar
 
         /// <summary>
         /// Contains all 'mouse-overable' items.
+        /// Performance optimized: caches result per frame to avoid repeated LINQ operations.
         /// </summary>
         private IEnumerable<IMouseoverEntity> MouseOverItems
         {
             get
             {
+                // Return cached result if we're still in the same frame
+                if (_mouseOverItemsCacheFrame == _currentFrame && _mouseOverItemsCache != null)
+                    return _mouseOverItemsCache;
+
                 var players = AllPlayers
                                   .Where(x => x is not Tarkov.EFTPlayer.LocalPlayer
                                               && !x.HasExfild && (LootCorpsesVisible ? x.IsAlive : true))
@@ -248,8 +273,12 @@ namespace eft_dma_radar
                     players = players.Where(x =>
                         x.LootObject is null || !loot.Contains(x.LootObject));
 
-                var result = loot.Concat(containers).Concat(players).Concat(exits).Concat(questZones).Concat(switches).Concat(doors);
-                return result.Any() ? result : null;
+                // Materialize the concatenated result to avoid repeated enumeration
+                var result = loot.Concat(containers).Concat(players).Concat(exits).Concat(questZones).Concat(switches).Concat(doors).ToList();
+                _mouseOverItemsCache = result.Count > 0 ? result : null;
+                _mouseOverItemsCacheFrame = _currentFrame;
+
+                return _mouseOverItemsCache;
             }
         }
         public void UpdateWindowTitle(string configName)
@@ -334,6 +363,9 @@ namespace eft_dma_radar
             {
                 SkiaResourceTracker.TrackMainWindowFrame();
 
+                // Increment frame counter for caching optimizations
+                _currentFrame++;
+
                 SetFPS(inRaid, canvas);
                 // Check for map switch
                 var mapID = MapID;
@@ -362,11 +394,42 @@ namespace eft_dma_radar
                     var localPlayerMapPos = localPlayerPos.ToMapPos(map.Config);
 
                     // Prepare to draw Game Map - use smooth zoom/pan values
+                    // Performance optimization: cache map parameters when zoom/position hasn't changed
                     LoneMapParams mapParams;
+                    bool needsRecalc = _cachedZoom != _zoom || _cachedFreeMode != _freeMode;
+
                     if (_freeMode)
-                        mapParams = map.GetParameters(skCanvas, _zoom, ref _mapPanPosition);
+                    {
+                        needsRecalc |= _cachedPosition.X != _mapPanPosition.X || _cachedPosition.Y != _mapPanPosition.Y;
+                        if (needsRecalc)
+                        {
+                            mapParams = map.GetParameters(skCanvas, _zoom, ref _mapPanPosition);
+                            _cachedMapParams = mapParams;
+                            _cachedZoom = _zoom;
+                            _cachedPosition = _mapPanPosition;
+                            _cachedFreeMode = _freeMode;
+                        }
+                        else
+                        {
+                            mapParams = _cachedMapParams;
+                        }
+                    }
                     else
-                        mapParams = map.GetParameters(skCanvas, _zoom, ref localPlayerMapPos);
+                    {
+                        needsRecalc |= _cachedPosition.X != localPlayerMapPos.X || _cachedPosition.Y != localPlayerMapPos.Y;
+                        if (needsRecalc)
+                        {
+                            mapParams = map.GetParameters(skCanvas, _zoom, ref localPlayerMapPos);
+                            _cachedMapParams = mapParams;
+                            _cachedZoom = _zoom;
+                            _cachedPosition = localPlayerMapPos;
+                            _cachedFreeMode = _freeMode;
+                        }
+                        else
+                        {
+                            mapParams = _cachedMapParams;
+                        }
+                    }
 
                     if (GeneralSettingsControl.chkMapSetup.IsChecked == true)
                         MapSetupControl.UpdatePlayerPosition(localPlayer);
@@ -398,34 +461,12 @@ namespace eft_dma_radar
 
                     var battleMode = Config.BattleMode;
 
+                    // Performance optimized: use helper method
                     if (!Config.PlayersOnTop && Config.ConnectGroups)
                     {
-                        var groupedPlayers = allPlayers?.Where(x => x.IsHumanHostileActive && x.GroupID != -1);
-                        if (groupedPlayers is not null)
-                        {
-                            var groups = groupedPlayers.Select(x => x.GroupID).ToHashSet();
-                            foreach (var grp in groups)
-                            {
-                                var grpMembers = groupedPlayers.Where(x => x.GroupID == grp).ToList();
-                                if (grpMembers.Count > 1)
-                                {
-                                    var positions = grpMembers
-                                        .Select(x => x.Position.ToMapPos(map.Config).ToZoomedPos(mapParams))
-                                        .ToArray();
-
-                                    for (int i = 0; i < positions.Length - 1; i++)
-                                    {
-                                        canvas.DrawLine(
-                                            positions[i].X, positions[i].Y,
-                                            positions[i + 1].X, positions[i + 1].Y,
-                                            SKPaints.PaintConnectorGroup);
-                                    }
-                                }
-                            }
-                        }
+                        DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
-                    var bosses = allPlayers?.Where(p => p.Type == PlayerType.AIBoss).ToList();
-                    var nonBosses = allPlayers?.Where(p => p.Type != PlayerType.AIBoss).ToList();
+
                     if (!Config.PlayersOnTop)
                         if (allPlayers is not null)
                         {
@@ -573,31 +614,10 @@ namespace eft_dma_radar
                         }
                     }
 
+                    // Performance optimized: use helper method
                     if (Config.PlayersOnTop && Config.ConnectGroups)
                     {
-                        var groupedPlayers = allPlayers?.Where(x => x.IsHumanHostileActive && x.GroupID != -1);
-                        if (groupedPlayers is not null)
-                        {
-                            var groups = groupedPlayers.Select(x => x.GroupID).ToHashSet();
-                            foreach (var grp in groups)
-                            {
-                                var grpMembers = groupedPlayers.Where(x => x.GroupID == grp).ToList();
-                                if (grpMembers.Count > 1)
-                                {
-                                    var positions = grpMembers
-                                        .Select(x => x.Position.ToMapPos(map.Config).ToZoomedPos(mapParams))
-                                        .ToArray();
-
-                                    for (int i = 0; i < positions.Length - 1; i++)
-                                    {
-                                        canvas.DrawLine(
-                                            positions[i].X, positions[i].Y,
-                                            positions[i + 1].X, positions[i + 1].Y,
-                                            SKPaints.PaintConnectorGroup);
-                                    }
-                                }
-                            }
-                        }
+                        DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
 
                     if (Config.PlayersOnTop)
@@ -619,16 +639,18 @@ namespace eft_dma_radar
 
                     closestToMouse?.DrawMouseover(canvas, mapParams, localPlayer); // draw tooltip for object the mouse is closest to
 
+                    // Performance optimized: iterate backwards to avoid ToList() allocation
                     if (_activePings.Count > 0)
                     {
                         var now = DateTime.UtcNow;
 
-                        foreach (var ping in _activePings.ToList())
+                        for (int i = _activePings.Count - 1; i >= 0; i--)
                         {
+                            var ping = _activePings[i];
                             var elapsed = (float)(now - ping.StartTime).TotalSeconds;
                             if (elapsed > ping.DurationSeconds)
                             {
-                                _activePings.Remove(ping);
+                                _activePings.RemoveAt(i);
                                 continue;
                             }
 
@@ -638,15 +660,9 @@ namespace eft_dma_radar
 
                             var center = ping.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
 
-                            using var paint = new SKPaint
-                            {
-                                Style = SKPaintStyle.Stroke,
-                                StrokeWidth = 4,
-                                Color = new SKColor(0, 255, 255, (byte)(alpha * 255)),
-                                IsAntialias = true
-                            };
-
-                            canvas.DrawCircle(center.X, center.Y, radius, paint);
+                            // Performance optimized: reuse paint object, only update color
+                            _pingPaint.Color = new SKColor(0, 255, 255, (byte)(alpha * 255));
+                            canvas.DrawCircle(center.X, center.Y, radius, _pingPaint);
                         }
                     }
 
@@ -694,6 +710,57 @@ namespace eft_dma_radar
             _ => 1
 
         };
+
+        /// <summary>
+        /// Checks if a position is within the visible viewport with a small margin.
+        /// Performance optimization to skip drawing off-screen entities.
+        /// </summary>
+        private static bool IsInViewport(SKPoint position, float canvasWidth, float canvasHeight, float margin = 100f)
+        {
+            return position.X >= -margin && position.X <= canvasWidth + margin &&
+                   position.Y >= -margin && position.Y <= canvasHeight + margin;
+        }
+
+        /// <summary>
+        /// Performance-optimized method to draw group connection lines.
+        /// Uses ArrayPool to reduce allocations.
+        /// </summary>
+        private void DrawGroupConnections(SKCanvas canvas, IEnumerable<Player> allPlayers, ILoneMap map, LoneMapParams mapParams)
+        {
+            if (allPlayers is null) return;
+
+            var groupedPlayers = allPlayers.Where(x => x.IsHumanHostileActive && x.GroupID != -1).ToList();
+            if (groupedPlayers.Count == 0) return;
+
+            var groups = groupedPlayers.Select(x => x.GroupID).ToHashSet();
+            foreach (var grp in groups)
+            {
+                var grpMembers = groupedPlayers.Where(x => x.GroupID == grp).ToList();
+                if (grpMembers.Count <= 1) continue;
+
+                // Use ArrayPool to reduce allocations
+                var positions = ArrayPool<SKPoint>.Shared.Rent(grpMembers.Count);
+                try
+                {
+                    for (int i = 0; i < grpMembers.Count; i++)
+                    {
+                        positions[i] = grpMembers[i].Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                    }
+
+                    for (int i = 0; i < grpMembers.Count - 1; i++)
+                    {
+                        canvas.DrawLine(
+                            positions[i].X, positions[i].Y,
+                            positions[i + 1].X, positions[i + 1].Y,
+                            SKPaints.PaintConnectorGroup);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<SKPoint>.Shared.Return(positions);
+                }
+            }
+        }
         public static void PingItem(string itemName)
         {
             var matchingLootItems = Loot?.Where(x => x?.Name?.IndexOf(itemName, StringComparison.OrdinalIgnoreCase) >= 0);
@@ -1839,6 +1906,7 @@ namespace eft_dma_radar
                 }
 
                 _renderTimer.Dispose();
+                _pingPaint?.Dispose(); // Dispose reusable paint object
 
                 Window = null;
 
@@ -2176,14 +2244,17 @@ namespace eft_dma_radar
                 if (double.IsNaN(left)) left = 5;
                 if (double.IsNaN(top)) top = 5;
 
+                // Performance optimization: cache property accesses
                 var containerWidth = container.ActualWidth;
                 var containerHeight = container.ActualHeight;
 
                 if (containerWidth <= 0) containerWidth = 1200;
                 if (containerHeight <= 0) containerHeight = 800;
 
-                var panelWidth = panel.ActualWidth > 0 ? panel.ActualWidth : panel.Width;
-                var panelHeight = panel.ActualHeight > 0 ? panel.ActualHeight : panel.Height;
+                var panelActualWidth = panel.ActualWidth;
+                var panelActualHeight = panel.ActualHeight;
+                var panelWidth = panelActualWidth > 0 ? panelActualWidth : panel.Width;
+                var panelHeight = panelActualHeight > 0 ? panelActualHeight : panel.Height;
 
                 if (adjustSize)
                 {
