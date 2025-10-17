@@ -298,6 +298,10 @@ namespace eft_dma_radar
 
             Window = this;
 
+            // Enable WPF rendering optimizations for smoother frame pacing
+            RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.Default; // Use hardware acceleration
+            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display); // Optimized text rendering
+
             this.SizeChanged += MainWindow_SizeChanged;
 
             if (Config.WindowMaximized)
@@ -1127,21 +1131,18 @@ namespace eft_dma_radar
 
         private void RenderTimer_Elapsed(object sender, EventArgs e)
         {
+            // Simple check without lock - volatile bool is sufficient here
             if (_isRendering) return;
 
             try
             {
-                var priority = _uiInteractionActive ?
-                    DispatcherPriority.Background :
-                    DispatcherPriority.Render;
-
-                Dispatcher.BeginInvoke(new Action(() =>
+                // Use Invoke (synchronous) instead of BeginInvoke to let timer control frame pacing
+                // This prevents frames from piling up in the dispatcher queue
+                // Always use Render priority for consistent frame timing - background priority causes stuttering
+                Dispatcher.Invoke(new Action(() =>
                 {
-                    lock (_renderLock)
-                    {
-                        if (_isRendering) return;
-                        _isRendering = true;
-                    }
+                    if (_isRendering) return;
+                    _isRendering = true;
 
                     try
                     {
@@ -1151,7 +1152,7 @@ namespace eft_dma_radar
                     {
                         _isRendering = false;
                     }
-                }), priority);
+                }), DispatcherPriority.Render);
             }
             catch (Exception ex)
             {
@@ -1167,6 +1168,11 @@ namespace eft_dma_radar
 
             while (skCanvas.GRContext is null)
                 await Task.Delay(25);
+
+            // Enable WPF rendering optimizations for smoother frame pacing
+            RenderOptions.SetBitmapScalingMode(skCanvas, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(skCanvas, EdgeMode.Aliased);
+            RenderOptions.SetCachingHint(skCanvas, CachingHint.Cache);
 
             skCanvas.GRContext.SetResourceCacheLimit(536870912); // 512 MB
 
