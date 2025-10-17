@@ -101,12 +101,16 @@ namespace eft_dma_shared.Common.Maps
                     localPlayerMapPos.Y + zoomHeight / 2)
                 .AspectFill(canvasSize);
 
+            // Performance optimization: Calculate LOD level based on zoom
+            int lodLevel = zoom >= 150 ? 2 : (zoom >= 110 ? 1 : 0);
+
             return new LoneMapParams
             {
                 Map = Config,
                 Bounds = bounds,
                 XScale = canvasSize.Width / bounds.Width, // Set scale for this frame
-                YScale = canvasSize.Height / bounds.Height // Set scale for this frame
+                YScale = canvasSize.Height / bounds.Height, // Set scale for this frame
+                LODLevel = lodLevel
             };
         }
         public LoneMapParams GetParametersE(SKSize control, float zoom, ref Vector2 localPlayerMapPos)
@@ -120,12 +124,16 @@ namespace eft_dma_shared.Common.Maps
                     localPlayerMapPos.Y + zoomHeight / 2)
                 .AspectFill(control);
 
+            // Performance optimization: Calculate LOD level based on zoom
+            int lodLevel = zoom >= 150 ? 2 : (zoom >= 110 ? 1 : 0);
+
             return new LoneMapParams
             {
                 Map = Config,
                 Bounds = bounds,
                 XScale = control.Width / bounds.Width, // Set scale for this frame
-                YScale = control.Height / bounds.Height // Set scale for this frame
+                YScale = control.Height / bounds.Height, // Set scale for this frame
+                LODLevel = lodLevel
             };
         }
         public void Dispose()

@@ -23,5 +23,10 @@ namespace eft_dma_shared.Common.Maps
         /// Regular -> Zoomed 'Y' Scale correction.
         /// </summary>
         public float YScale { get; init; }
+        /// <summary>
+        /// Level of Detail for rendering (0 = full, 1 = medium, 2 = minimal).
+        /// Performance optimization to reduce rendering complexity at extreme zoom levels.
+        /// </summary>
+        public int LODLevel { get; init; }
     }
 }

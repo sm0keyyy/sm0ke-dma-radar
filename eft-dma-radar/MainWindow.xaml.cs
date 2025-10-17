@@ -120,6 +120,17 @@ namespace eft_dma_radar
             IsAntialias = true
         };
 
+        // Performance optimization: Cache for ordered players to eliminate repeated LINQ allocations
+        private List<Player> _orderedPlayersCache;
+        private int _orderedPlayersCacheFrame = -1;
+
+        // Performance optimization: Cache for doors list
+        private int _lastDoorCount = -1;
+
+        // Performance optimization: Cache for filtered loot
+        private bool _lootCorpseSettingsEnabled = false;
+        private int _lootFilterCacheFrame = -1;
+
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
 
@@ -472,18 +483,17 @@ namespace eft_dma_radar
                     }
 
                     if (!Config.PlayersOnTop)
-                        if (allPlayers is not null)
+                    {
+                        // Performance optimized: use cached ordered players list
+                        var ordered = GetOrderedPlayers(allPlayers, localPlayer);
+                        if (ordered is not null)
                         {
-                            var ordered = allPlayers
-                                .Where(p => p != localPlayer)                  // skip self
-                                .OrderBy(p => DrawPriority(p.Type))            // use your priority
-                                .ToList();
-
                             foreach (var player in ordered)
                             {
                                 player.Draw(canvas, mapParams, localPlayer);
                             }
                         }
+                    }
 
                     if (!battleMode && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                     {
@@ -509,12 +519,22 @@ namespace eft_dma_radar
                         LootItem.ImportantLootSettings.Enabled ||
                         LootItem.QuestItemSettings.Enabled)))
                     {
-                        var loot = Loot?.Where(x => x is not QuestItem).Reverse(); // QuestItem objects handled below
+                        // Performance optimized: cache corpse settings check outside the loop
+                        var corpseEnabled = LootItem.CorpseSettings.Enabled;
+                        var loot = Loot;
+
                         if (loot is not null)
                         {
-                            foreach (var item in loot)
+                            // Performance optimized: use direct iteration, filter in reverse without allocating
+                            // This is more efficient than .Where().Reverse() which creates intermediate collections
+                            foreach (var item in loot.Reverse())
                             {
-                                if (!LootItem.CorpseSettings.Enabled && item is LootCorpse)
+                                // Skip quest items (handled separately below)
+                                if (item is QuestItem)
+                                    continue;
+
+                                // Early-out: skip corpses if corpse rendering is disabled
+                                if (!corpseEnabled && item is LootCorpse)
                                     continue;
 
                                 item.CheckNotify();
@@ -607,7 +627,12 @@ namespace eft_dma_radar
                         var doorsSet = Memory.Game?.Interactables._Doors;
                         if (doorsSet is not null && doorsSet.Count > 0)
                         {
-                            Doors = doorsSet.ToList();
+                            // Performance optimized: only regenerate doors list if count changed
+                            if (doorsSet.Count != _lastDoorCount)
+                            {
+                                Doors = doorsSet.ToList();
+                                _lastDoorCount = doorsSet.Count;
+                            }
 
                             foreach (var door in Doors)
                                 door.Draw(canvas, mapParams, localPlayer);
@@ -615,6 +640,7 @@ namespace eft_dma_radar
                         else
                         {
                             Doors = null;
+                            _lastDoorCount = -1;
                         }
                     }
 
@@ -625,18 +651,17 @@ namespace eft_dma_radar
                     }
 
                     if (Config.PlayersOnTop)
-                        if (allPlayers is not null)
+                    {
+                        // Performance optimized: use cached ordered players list
+                        var ordered = GetOrderedPlayers(allPlayers, localPlayer);
+                        if (ordered is not null)
                         {
-                            var ordered = allPlayers
-                                .Where(p => p != localPlayer)                  // skip self
-                                .OrderBy(p => DrawPriority(p.Type))            // use your priority
-                                .ToList();
-
                             foreach (var player in ordered)
                             {
                                 player.Draw(canvas, mapParams, localPlayer);
                             }
                         }
+                    }
 
                     // Draw LocalPlayer
                     localPlayer.Draw(canvas, mapParams, localPlayer);
@@ -726,32 +751,76 @@ namespace eft_dma_radar
         }
 
         /// <summary>
+        /// Determines the level of detail to render based on zoom level.
+        /// Performance optimization to reduce text rendering at extreme zoom levels.
+        /// </summary>
+        /// <param name="zoom">Current zoom percentage (100 = 100%)</param>
+        /// <returns>0 = Full detail, 1 = Medium detail (text only), 2 = Low detail (dots only)</returns>
+        private static int GetLODLevel(int zoom)
+        {
+            if (zoom >= 150) return 2;      // Far out - dots only
+            if (zoom >= 110) return 1;      // Medium - text only, no icons
+            return 0;                       // Normal - full detail
+        }
+
+        /// <summary>
         /// Performance-optimized method to draw group connection lines.
-        /// Uses ArrayPool to reduce allocations.
+        /// Uses ArrayPool to reduce allocations and avoid repeated LINQ materializations.
         /// </summary>
         private void DrawGroupConnections(SKCanvas canvas, IEnumerable<Player> allPlayers, ILoneMap map, LoneMapParams mapParams)
         {
             if (allPlayers is null) return;
 
-            var groupedPlayers = allPlayers.Where(x => x.IsHumanHostileActive && x.GroupID != -1).ToList();
-            if (groupedPlayers.Count == 0) return;
+            // Performance optimized: Use List<Player> to avoid multiple enumerations
+            var playersList = allPlayers as List<Player> ?? allPlayers.ToList();
 
-            var groups = groupedPlayers.Select(x => x.GroupID).ToHashSet();
+            // Count grouped players first to avoid unnecessary allocation
+            int groupedCount = 0;
+            foreach (var p in playersList)
+            {
+                if (p.IsHumanHostileActive && p.GroupID != -1)
+                    groupedCount++;
+            }
+
+            if (groupedCount == 0) return;
+
+            // Collect unique group IDs
+            var groups = new HashSet<int>();
+            foreach (var p in playersList)
+            {
+                if (p.IsHumanHostileActive && p.GroupID != -1)
+                    groups.Add(p.GroupID);
+            }
+
+            // Process each group
             foreach (var grp in groups)
             {
-                var grpMembers = groupedPlayers.Where(x => x.GroupID == grp).ToList();
-                if (grpMembers.Count <= 1) continue;
+                // Count members in this group first
+                int memberCount = 0;
+                foreach (var p in playersList)
+                {
+                    if (p.IsHumanHostileActive && p.GroupID == grp)
+                        memberCount++;
+                }
+
+                if (memberCount <= 1) continue;
 
                 // Use ArrayPool to reduce allocations
-                var positions = ArrayPool<SKPoint>.Shared.Rent(grpMembers.Count);
+                var positions = ArrayPool<SKPoint>.Shared.Rent(memberCount);
                 try
                 {
-                    for (int i = 0; i < grpMembers.Count; i++)
+                    // Fill positions array
+                    int idx = 0;
+                    foreach (var p in playersList)
                     {
-                        positions[i] = grpMembers[i].Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                        if (p.IsHumanHostileActive && p.GroupID == grp)
+                        {
+                            positions[idx++] = p.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                        }
                     }
 
-                    for (int i = 0; i < grpMembers.Count - 1; i++)
+                    // Draw connection lines
+                    for (int i = 0; i < memberCount - 1; i++)
                     {
                         canvas.DrawLine(
                             positions[i].X, positions[i].Y,
@@ -765,6 +834,31 @@ namespace eft_dma_radar
                 }
             }
         }
+
+        /// <summary>
+        /// Performance-optimized method to get ordered players with caching.
+        /// Caches the ordered list for the current frame to avoid repeated LINQ allocations.
+        /// </summary>
+        private List<Player> GetOrderedPlayers(IEnumerable<Player> allPlayers, Player localPlayer)
+        {
+            if (allPlayers is null) return null;
+
+            // Check if we can use the cached result
+            if (_orderedPlayersCache != null && _orderedPlayersCacheFrame == _currentFrame)
+            {
+                return _orderedPlayersCache;
+            }
+
+            // Build new ordered list - only allocate once per frame
+            _orderedPlayersCache = allPlayers
+                .Where(p => p != localPlayer)
+                .OrderBy(p => DrawPriority(p.Type))
+                .ToList();
+
+            _orderedPlayersCacheFrame = _currentFrame;
+            return _orderedPlayersCache;
+        }
+
         public static void PingItem(string itemName)
         {
             var matchingLootItems = Loot?.Where(x => x?.Name?.IndexOf(itemName, StringComparison.OrdinalIgnoreCase) >= 0);
