@@ -255,9 +255,9 @@ namespace eft_dma_radar
         public void UpdateWindowTitle(string configName)
         {
             if (string.IsNullOrWhiteSpace(configName))
-                TitleTextBlock.Text = "EFT DMA Radar";
+                TitleTextBlock.Text = "sm0keyyy's DMA Radar";
             else
-                TitleTextBlock.Text = $"EFT DMA Radar - {configName}";
+                TitleTextBlock.Text = $"sm0keyyy's DMA Radar - {configName}";
         }
         private List<Tarkov.GameWorld.Exits.Switch> Switches = new List<Tarkov.GameWorld.Exits.Switch>();
         public static List<Tarkov.GameWorld.Interactables.Door> Doors = new List<Tarkov.GameWorld.Interactables.Door>();
