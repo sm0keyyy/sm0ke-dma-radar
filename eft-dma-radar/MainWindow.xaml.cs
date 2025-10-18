@@ -1016,19 +1016,6 @@ namespace eft_dma_radar
         }
 
         /// <summary>
-        /// Determines the level of detail to render based on zoom level.
-        /// Performance optimization to reduce text rendering at extreme zoom levels.
-        /// </summary>
-        /// <param name="zoom">Current zoom percentage (100 = 100%)</param>
-        /// <returns>0 = Full detail, 1 = Medium detail (text only), 2 = Low detail (dots only)</returns>
-        private static int GetLODLevel(int zoom)
-        {
-            if (zoom >= 150) return 2;      // Far out - dots only
-            if (zoom >= 110) return 1;      // Medium - text only, no icons
-            return 0;                       // Normal - full detail
-        }
-
-        /// <summary>
         /// Performance-optimized method to draw group connection lines.
         /// Uses ArrayPool to reduce allocations and avoid repeated LINQ materializations.
         /// </summary>
