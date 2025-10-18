@@ -22,6 +22,11 @@ namespace eft_dma_radar.Tarkov.Loot
         private readonly CancellationToken _ct;
         private readonly Lock _filterSync = new();
 
+        // Throttle expensive corpse/container processing (static since ProcessLootIndex is static)
+        private static int _detailedLootRefreshCounter = 0;
+        private const int DETAILED_LOOT_REFRESH_INTERVAL = 20; // Every 1000ms (20 cycles × 50ms)
+        private static readonly HashSet<ulong> _processedCorpses = new(); // Track which corpses we've already scanned
+
         /// <summary>
         /// All loot (unfiltered).
         /// </summary>
@@ -205,9 +210,20 @@ namespace eft_dma_radar.Tarkov.Loot
                 if (isCorpse)
                 {
                     var player = deadPlayers?.FirstOrDefault(x => x.Corpse == interactiveClass);
+
+                    // OPTIMIZATION: Only process corpse loot details every 1 second instead of every 50ms
+                    // Corpse loot doesn't change (player is dead), so we can cache it
+                    bool shouldProcessDetails = (++_detailedLootRefreshCounter % DETAILED_LOOT_REFRESH_INTERVAL) == 0
+                                               || !_processedCorpses.Contains(interactiveClass);
+
                     var corpseLoot = new List<LootItem>();
-                    bool isPMC = player?.IsPmc ?? true; // Default to true to omit things like Red Rebel Scabbard if we're not sure
-                    GetCorpseLoot(interactiveClass, corpseLoot, isPMC);
+                    if (shouldProcessDetails)
+                    {
+                        bool isPMC = player?.IsPmc ?? true;
+                        GetCorpseLoot(interactiveClass, corpseLoot, isPMC);
+                        _processedCorpses.Add(interactiveClass);
+                    }
+
                     var corpse = new LootCorpse(corpseLoot)
                     {
                         Position = pos,
