@@ -1,5 +1,4 @@
 ﻿using System.Collections.Frozen;
-using System.IO;
 using eft_dma_shared.Common.Misc;
 using eft_dma_radar.Tarkov.EFTPlayer;
 
@@ -113,11 +112,6 @@ namespace eft_dma_radar.Tarkov.Loot
             var containers = new List<StaticLootContainer>(64);
             var deadPlayers = Memory.Players?
                 .Where(x => x.Corpse is not null)?.ToList();
-
-            // Debug: Log initial loot list count
-            var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_debug.txt");
-            File.AppendAllText(debugPath, $"[{DateTime.Now:HH:mm:ss}] >>> GetLoot() called - LootList count: {lootList.Count}\n");
-
             using var map = ScatterReadMap.Get();
             var round1 = map.AddRound();
             var round2 = map.AddRound();
@@ -127,10 +121,6 @@ namespace eft_dma_radar.Tarkov.Loot
             var round6 = map.AddRound(); // Item templates and metadata
             var round7 = map.AddRound(); // BSG IDs and flags
             var round8 = map.AddRound(); // BSG ID strings
-
-            int looseCount = 0, containerCount = 0, corpseCount = 0;
-            int round1Count = 0, round4Count = 0;
-
             for (int ix = 0; ix < lootList.Count; ix++)
             {
                 var i = ix;
@@ -140,7 +130,6 @@ namespace eft_dma_radar.Tarkov.Loot
                 round1[i].AddEntry<MemPointer>(1, lootBase + ObjectClass.To_NamePtr[0]); // C1
                 round1[i].Callbacks += x1 =>
                 {
-                    System.Threading.Interlocked.Increment(ref round1Count);
                     if (x1.TryGetResult<MemPointer>(0, out var monoBehaviour) && x1.TryGetResult<MemPointer>(1, out var c1))
                     {
                         round2[i].AddEntry<MemPointer>(2,
@@ -168,7 +157,6 @@ namespace eft_dma_radar.Tarkov.Loot
                                             components + 0x8); // T1
                                         round4[i].Callbacks += x4 =>
                                         {
-                                            System.Threading.Interlocked.Increment(ref round4Count);
                                             if (x4.TryGetResult<UTF8String>(8, out var classNameUtf8) &&
                                                 x4.TryGetResult<UTF8String>(9, out var objectNameUtf8) &&
                                                 x4.TryGetResult<MemPointer>(10, out var transformInternal))
@@ -177,23 +165,11 @@ namespace eft_dma_radar.Tarkov.Loot
                                                 string className = classNameUtf8;
                                                 string objectName = objectNameUtf8;
 
-                                                // Debug: Log first 5 unique classNames to see what we're getting
-                                                if (i < 5)
-                                                {
-                                                    var debugPath2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_classnames.txt");
-                                                    File.AppendAllText(debugPath2, $"[{i}] ClassName: '{className}', ObjectName: '{objectName}'\n");
-                                                }
-
                                                 // Determine loot type early to batch the right reads
                                                 var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
                                                 var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
                                                 var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
                                                 var skipScript = objectName.Contains("script", StringComparison.OrdinalIgnoreCase);
-
-                                                // Debug: Track types
-                                                if (isLooseLoot) System.Threading.Interlocked.Increment(ref looseCount);
-                                                if (isContainer) System.Threading.Interlocked.Increment(ref containerCount);
-                                                if (isCorpse) System.Threading.Interlocked.Increment(ref corpseCount);
 
                                                 // Round 5: Read base item/container pointers
                                                 if (!skipScript && (isLooseLoot || isContainer))
@@ -357,14 +333,6 @@ namespace eft_dma_radar.Tarkov.Loot
             }
 
             map.Execute(); // execute scatter read
-
-            // Debug: Save loot counts to desktop
-            var debugInfo = $"[{DateTime.Now:HH:mm:ss}] CALLBACKS: Round1={round1Count}, Round4={round4Count}\n";
-            debugInfo += $"[{DateTime.Now:HH:mm:ss}] DETECTED: Loose={looseCount}, Containers={containerCount}, Corpses={corpseCount}\n";
-            debugInfo += $"[{DateTime.Now:HH:mm:ss}] RESULTS: Total loot items: {loot.Count}, Containers: {containers.Count}\n";
-            debugInfo += $"  Breakdown - QuestItems: {loot.Count(x => x is QuestItem)}, Regular: {loot.Count(x => x is LootItem && x is not QuestItem && x is not LootCorpse)}, Corpses: {loot.Count(x => x is LootCorpse)}\n\n";
-            File.AppendAllText(debugPath, debugInfo);
-
             this.UnfilteredLoot = loot;
             this.StaticLootContainers = containers;
         }
