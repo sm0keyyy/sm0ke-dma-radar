@@ -66,6 +66,7 @@ namespace eft_dma_radar
         private Vector2 _mapPanPosition;
 
         private Dictionary<string, PanelInfo> _panels;
+        private List<Canvas> _allPanelCanvases; // Performance: cached list for z-index operations
 
         private int _zoomStep => Config.ZoomStep;
         private float _zoomToMouseStrength => Config.ZoomToMouse;
@@ -98,13 +99,27 @@ namespace eft_dma_radar
         private volatile bool _uiInteractionActive = false;
         private DispatcherTimer _uiActivityTimer;
 
+        // Performance optimization: Debounced config save to reduce I/O operations
+        private DispatcherTimer _configSaveDebounceTimer;
+        private bool _hasPendingConfigSave = false;
+
         private readonly Stopwatch _statusSw = Stopwatch.StartNew();
         private int _statusOrder = 1;
 
-        // Performance optimization: Cache for MouseOverItems
+        // Performance optimization: Cached status strings to avoid allocations
+        private const string _statusNotRunning = "Game Process Not Running!";
+        private const string _statusStartingUp1 = "Starting Up.";
+        private const string _statusStartingUp2 = "Starting Up..";
+        private const string _statusStartingUp3 = "Starting Up...";
+        private const string _statusWaitingRaid1 = "Waiting for Raid Start.";
+        private const string _statusWaitingRaid2 = "Waiting for Raid Start..";
+        private const string _statusWaitingRaid3 = "Waiting for Raid Start...";
+
+        // Performance optimization: Cache for MouseOverItems with dirty flag
         private IEnumerable<IMouseoverEntity> _mouseOverItemsCache;
         private int _mouseOverItemsCacheFrame;
         private int _currentFrame;
+        private bool _mouseOverItemsDirty = true;
 
         // Performance optimization: Cache for map parameters
         private LoneMapParams _cachedMapParams;
@@ -120,6 +135,13 @@ namespace eft_dma_radar
             IsAntialias = true
         };
 
+        // Performance optimization: Pooled paint for player dimming zones
+        private readonly SKPaint _dimmingPaint = new()
+        {
+            Style = SKPaintStyle.Fill,
+            IsAntialias = true
+        };
+
         // Performance optimization: Cache for ordered players to eliminate repeated LINQ allocations
         private List<Player> _orderedPlayersCache;
         private int _orderedPlayersCacheFrame = -1;
@@ -130,6 +152,18 @@ namespace eft_dma_radar
         // Performance optimization: Cache for filtered loot
         private bool _lootCorpseSettingsEnabled = false;
         private int _lootFilterCacheFrame = -1;
+
+        // Performance optimization: Spatial indexing for viewport culling
+        private SpatialIndex<IMouseoverEntity> _entitySpatialIndex;
+        private int _spatialIndexVersion = -1;
+        private string _lastSpatialIndexMapID = null;
+
+        // Performance optimization: Draw call batching
+        private readonly DrawBatcher _drawBatcher = new();
+
+        // Performance optimization: GRContext resource tracking
+        private int _framesSinceLastGC = 0;
+        private const int GC_INTERVAL_FRAMES = 300; // Purge GPU resources every 300 frames (~5 seconds at 60fps)
 
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
@@ -258,39 +292,119 @@ namespace eft_dma_radar
 
         /// <summary>
         /// Contains all 'mouse-overable' items.
-        /// Performance optimized: caches result per frame to avoid repeated LINQ operations.
+        /// Performance optimized: caches result with dirty flag to avoid repeated LINQ operations.
         /// </summary>
         private IEnumerable<IMouseoverEntity> MouseOverItems
         {
             get
             {
-                // Return cached result if we're still in the same frame
-                if (_mouseOverItemsCacheFrame == _currentFrame && _mouseOverItemsCache != null)
+                // Return cached result if still valid for current frame and not dirty
+                if (!_mouseOverItemsDirty && _mouseOverItemsCacheFrame == _currentFrame && _mouseOverItemsCache != null)
                     return _mouseOverItemsCache;
 
-                var players = AllPlayers
-                                  .Where(x => x is not Tarkov.EFTPlayer.LocalPlayer
-                                              && !x.HasExfild && (LootCorpsesVisible ? x.IsAlive : true))
-                              ?? Enumerable.Empty<Player>();
+                // Performance: avoid repeated property access
+                var allPlayers = AllPlayers;
+                var loot = Loot;
+                var containers = Containers;
+                var exits = Exits;
+                var switches = Switches;
+                var doors = Doors;
+                var lootCorpsesVisible = LootCorpsesVisible;
+                var filterIsSet = FilterIsSet;
 
-                var loot = Loot ?? Enumerable.Empty<IMouseoverEntity>();
-                var containers = Containers ?? Enumerable.Empty<IMouseoverEntity>();
-                var exits = Exits ?? Enumerable.Empty<IMouseoverEntity>();
-                var questZones = Memory.QuestManager?.LocationConditions ?? Enumerable.Empty<IMouseoverEntity>();
-                var switches = Switches ?? Enumerable.Empty<IMouseoverEntity>();
-                var doors = Doors ?? Enumerable.Empty<Door>();
+                // Pre-allocate list with estimated capacity to reduce resizing
+                var result = new List<IMouseoverEntity>(256);
 
-                if (FilterIsSet && !LootItem.CorpseSettings.Enabled)
-                    players = players.Where(x =>
-                        x.LootObject is null || !loot.Contains(x.LootObject));
+                // Add loot items
+                if (loot != null)
+                {
+                    foreach (var item in loot)
+                        result.Add(item);
+                }
 
-                // Materialize the concatenated result to avoid repeated enumeration
-                var result = loot.Concat(containers).Concat(players).Concat(exits).Concat(questZones).Concat(switches).Concat(doors).ToList();
+                // Add containers
+                if (containers != null)
+                {
+                    foreach (var container in containers)
+                        result.Add(container);
+                }
+
+                // Add players with filtering
+                if (allPlayers != null)
+                {
+                    foreach (var player in allPlayers)
+                    {
+                        if (player is Tarkov.EFTPlayer.LocalPlayer || player.HasExfild)
+                            continue;
+
+                        if (!lootCorpsesVisible && !player.IsAlive)
+                            continue;
+
+                        if (filterIsSet && !LootItem.CorpseSettings.Enabled)
+                        {
+                            if (player.LootObject != null && loot != null)
+                            {
+                                bool found = false;
+                                foreach (var lootItem in loot)
+                                {
+                                    if (lootItem == player.LootObject)
+                                    {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                                if (found)
+                                    continue;
+                            }
+                        }
+
+                        result.Add(player);
+                    }
+                }
+
+                // Add exits
+                if (exits != null)
+                {
+                    foreach (var exit in exits)
+                        result.Add(exit);
+                }
+
+                // Add quest zones
+                var questZones = Memory.QuestManager?.LocationConditions;
+                if (questZones != null)
+                {
+                    foreach (var zone in questZones)
+                        result.Add(zone);
+                }
+
+                // Add switches
+                if (switches != null)
+                {
+                    foreach (var swtch in switches)
+                        result.Add(swtch);
+                }
+
+                // Add doors
+                if (doors != null)
+                {
+                    foreach (var door in doors)
+                        result.Add(door);
+                }
+
                 _mouseOverItemsCache = result.Count > 0 ? result : null;
                 _mouseOverItemsCacheFrame = _currentFrame;
+                _mouseOverItemsDirty = false;
 
                 return _mouseOverItemsCache;
             }
+        }
+
+        /// <summary>
+        /// Invalidates the MouseOverItems cache. Call when collections change.
+        /// </summary>
+        private void InvalidateMouseOverCache()
+        {
+            _mouseOverItemsDirty = true;
         }
         public void UpdateWindowTitle(string configName)
         {
@@ -789,6 +903,16 @@ namespace eft_dma_radar
                 }
 
                 SetStatusText(canvas);
+
+                // Performance optimization: Periodic GPU resource cleanup
+                _framesSinceLastGC++;
+                if (_framesSinceLastGC >= GC_INTERVAL_FRAMES)
+                {
+                    skCanvas?.GRContext?.Flush();
+                    skCanvas?.GRContext?.PurgeResources();
+                    _framesSinceLastGC = 0;
+                }
+
                 canvas.Flush(); // commit frame to GPU
             }
             catch (Exception ex) // Log rendering errors
@@ -917,18 +1041,15 @@ namespace eft_dma_radar
         /// <summary>
         /// Draws semi-transparent dimming zones around players to make them stand out from loot.
         /// Renders larger radius for local player to emphasize their position.
+        /// Performance optimized: uses pooled paint object instead of creating new one each frame.
         /// </summary>
-        private static void DrawPlayerDimmingZones(SKCanvas canvas, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
+        private void DrawPlayerDimmingZones(SKCanvas canvas, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
         {
             if (!Config.PlayerDimmingEnabled || allPlayers is null) return;
 
+            // Update pooled paint color only (avoid allocation)
             byte alpha = (byte)(Config.PlayerDimmingOpacity * 255);
-            using var dimmingPaint = new SKPaint
-            {
-                Color = SKColors.Black.WithAlpha(alpha),
-                Style = SKPaintStyle.Fill,
-                IsAntialias = true
-            };
+            _dimmingPaint.Color = SKColors.Black.WithAlpha(alpha);
 
             foreach (var player in allPlayers)
             {
@@ -939,7 +1060,7 @@ namespace eft_dma_radar
                     Config.LocalPlayerDimmingRadius * UIScale :
                     Config.PlayerDimmingRadius * UIScale;
 
-                canvas.DrawCircle(pos.X, pos.Y, radius, dimmingPaint);
+                canvas.DrawCircle(pos.X, pos.Y, radius, _dimmingPaint);
             }
         }
 
@@ -967,13 +1088,24 @@ namespace eft_dma_radar
             return _orderedPlayersCache;
         }
 
+        /// <summary>
+        /// Pings items by name on the radar.
+        /// Performance optimized: uses direct iteration instead of LINQ.
+        /// </summary>
         public static void PingItem(string itemName)
         {
-            var matchingLootItems = Loot?.Where(x => x?.Name?.IndexOf(itemName, StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (matchingLootItems != null && matchingLootItems.Any())
+            var loot = Loot;
+            if (loot == null)
             {
-                foreach (var lootItem in matchingLootItems)
+                LoneLogging.WriteLine($"[Ping] Item '{itemName}' not found.");
+                return;
+            }
+
+            bool foundAny = false;
+            foreach (var lootItem in loot)
+            {
+                if (lootItem?.Name != null &&
+                    lootItem.Name.Contains(itemName, StringComparison.OrdinalIgnoreCase))
                 {
                     _activePings.Add(new PingEffect
                     {
@@ -981,9 +1113,11 @@ namespace eft_dma_radar
                         StartTime = DateTime.UtcNow
                     });
                     LoneLogging.WriteLine($"[Ping] Pinged item: {lootItem.Name} at {lootItem.Position}");
+                    foundAny = true;
                 }
             }
-            else
+
+            if (!foundAny)
             {
                 LoneLogging.WriteLine($"[Ping] Item '{itemName}' not found.");
             }
@@ -1039,20 +1173,28 @@ namespace eft_dma_radar
             }
 
             var items = MouseOverItems;
-            if (items?.Any() != true)
+            if (items == null)
             {
                 ClearRefs();
                 return;
             }
 
+            // Performance optimized: find closest item without LINQ Aggregate
             var mouse = new Vector2((float)currentPos.X, (float)currentPos.Y);
-            var closest = items.Aggregate(
-                (x1, x2) => Vector2.Distance(x1.MouseoverPosition, mouse)
-                            < Vector2.Distance(x2.MouseoverPosition, mouse)
-                        ? x1
-                        : x2); // Get object 'closest' to mouse position
+            IMouseoverEntity closest = null;
+            float closestDistance = float.MaxValue;
 
-            if (Vector2.Distance(closest.MouseoverPosition, mouse) >= 12)
+            foreach (var item in items)
+            {
+                float distance = Vector2.Distance(item.MouseoverPosition, mouse);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closest = item;
+                }
+            }
+
+            if (closest == null || closestDistance >= 12)
             {
                 ClearRefs();
                 return;
@@ -1193,22 +1335,18 @@ namespace eft_dma_radar
 
         private void GameNotRunningStatus(SKCanvas canvas)
         {
-            const string notRunning = "Game Process Not Running!";
-            float textWidth = SKPaints.TextRadarStatus.MeasureText(notRunning);
-            canvas.DrawText(notRunning, ((float)skCanvas.ActualWidth / 2) - textWidth / 2f, (float)skCanvas.ActualHeight / 2,
+            float textWidth = SKPaints.TextRadarStatus.MeasureText(_statusNotRunning);
+            canvas.DrawText(_statusNotRunning, ((float)skCanvas.ActualWidth / 2) - textWidth / 2f, (float)skCanvas.ActualHeight / 2,
                 SKPaints.TextRadarStatus);
             IncrementStatus();
         }
 
         private void StartingUpStatus(SKCanvas canvas)
         {
-            const string startingUp1 = "Starting Up.";
-            const string startingUp2 = "Starting Up..";
-            const string startingUp3 = "Starting Up...";
             string status = _statusOrder == 1 ?
-                startingUp1 : _statusOrder == 2 ?
-                startingUp2 : startingUp3;
-            float textWidth = SKPaints.TextRadarStatus.MeasureText(startingUp1);
+                _statusStartingUp1 : _statusOrder == 2 ?
+                _statusStartingUp2 : _statusStartingUp3;
+            float textWidth = SKPaints.TextRadarStatus.MeasureText(_statusStartingUp1);
             canvas.DrawText(status, ((float)skCanvas.ActualWidth / 2) - textWidth / 2f, (float)skCanvas.ActualHeight / 2,
                 SKPaints.TextRadarStatus);
             IncrementStatus();
@@ -1216,13 +1354,10 @@ namespace eft_dma_radar
 
         private void WaitingForRaidStatus(SKCanvas canvas)
         {
-            const string waitingFor1 = "Waiting for Raid Start.";
-            const string waitingFor2 = "Waiting for Raid Start..";
-            const string waitingFor3 = "Waiting for Raid Start...";
             string status = _statusOrder == 1 ?
-                waitingFor1 : _statusOrder == 2 ?
-                waitingFor2 : waitingFor3;
-            float textWidth = SKPaints.TextRadarStatus.MeasureText(waitingFor1);
+                _statusWaitingRaid1 : _statusOrder == 2 ?
+                _statusWaitingRaid2 : _statusWaitingRaid3;
+            float textWidth = SKPaints.TextRadarStatus.MeasureText(_statusWaitingRaid1);
             canvas.DrawText(status, ((float)skCanvas.ActualWidth / 2) - textWidth / 2f, (float)skCanvas.ActualHeight / 2,
                 SKPaints.TextRadarStatus);
             IncrementStatus();
@@ -2115,6 +2250,7 @@ namespace eft_dma_radar
 
                 _renderTimer.Dispose();
                 _pingPaint?.Dispose(); // Dispose reusable paint object
+                _dimmingPaint?.Dispose(); // Dispose dimming paint object
 
                 Window = null;
 
@@ -2175,6 +2311,40 @@ namespace eft_dma_radar
                 _uiInteractionActive = false;
                 _uiActivityTimer.Stop();
             };
+
+            // Performance: Initialize debounce timer for config saves
+            _configSaveDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500) // Wait 500ms after last change before saving
+            };
+
+            _configSaveDebounceTimer.Tick += (s, e) =>
+            {
+                _configSaveDebounceTimer.Stop();
+                if (_hasPendingConfigSave)
+                {
+                    try
+                    {
+                        Config.Save();
+                        _hasPendingConfigSave = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        LoneLogging.WriteLine($"[CONFIG] Error saving config: {ex.Message}");
+                    }
+                }
+            };
+        }
+
+        /// <summary>
+        /// Requests a config save with debouncing to reduce I/O operations.
+        /// Multiple rapid calls will be coalesced into a single save operation.
+        /// </summary>
+        private void RequestDebouncedConfigSave()
+        {
+            _hasPendingConfigSave = true;
+            _configSaveDebounceTimer.Stop();
+            _configSaveDebounceTimer.Start();
         }
         private void InitilizeTelemetry()
         {
@@ -2547,24 +2717,19 @@ namespace eft_dma_radar
                 }
         }
 
+        /// <summary>
+        /// Brings a panel to the front by adjusting z-index.
+        /// Performance optimized: uses cached canvas list instead of allocating new list each time.
+        /// </summary>
         private void BringPanelToFront(Canvas panelCanvas)
         {
-            var canvases = new List<Canvas>
+            // Performance: use cached list to avoid repeated allocations
+            if (_allPanelCanvases != null)
             {
-                GeneralSettingsCanvas,
-                LootSettingsCanvas,
-                MemoryWritingCanvas,
-                ESPCanvas,
-                WatchlistCanvas,
-                PlayerHistoryCanvas,
-                LootFilterCanvas,
-                PlayerPreviewCanvas,
-                MapSetupCanvas
-            };
-
-            foreach (var canvas in canvases)
-            {
-                Canvas.SetZIndex(canvas, 1000);
+                for (int i = 0; i < _allPanelCanvases.Count; i++)
+                {
+                    Canvas.SetZIndex(_allPanelCanvases[i], 1000);
+                }
             }
 
             Canvas.SetZIndex(panelCanvas, 1001);
@@ -2591,17 +2756,30 @@ namespace eft_dma_radar
             AttachPreviewMouseDown(MapSetupPanel, MapSetupCanvas);
             AttachPreviewMouseDown(SettingsSearchPanel, SettingsSearchCanvas);
 
-            ESPCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(ESPCanvas);
-            GeneralSettingsCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(GeneralSettingsCanvas);
-            LootSettingsCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(LootSettingsCanvas);
-            MemoryWritingCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(MemoryWritingCanvas);
-            WatchlistCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(WatchlistCanvas);
-            PlayerHistoryCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(PlayerHistoryCanvas);
-            LootFilterCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(LootFilterCanvas);
-            PlayerPreviewCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(PlayerPreviewCanvas);
-            MapSetupCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(MapSetupCanvas);
-            SettingsSearchCanvas.PreviewMouseDown += (s, e) => BringPanelToFront(SettingsSearchCanvas);
+            // Performance optimized: Use dedicated methods instead of lambdas to reduce allocations
+            ESPCanvas.PreviewMouseDown += ESPCanvas_PreviewMouseDown;
+            GeneralSettingsCanvas.PreviewMouseDown += GeneralSettingsCanvas_PreviewMouseDown;
+            LootSettingsCanvas.PreviewMouseDown += LootSettingsCanvas_PreviewMouseDown;
+            MemoryWritingCanvas.PreviewMouseDown += MemoryWritingCanvas_PreviewMouseDown;
+            WatchlistCanvas.PreviewMouseDown += WatchlistCanvas_PreviewMouseDown;
+            PlayerHistoryCanvas.PreviewMouseDown += PlayerHistoryCanvas_PreviewMouseDown;
+            LootFilterCanvas.PreviewMouseDown += LootFilterCanvas_PreviewMouseDown;
+            PlayerPreviewCanvas.PreviewMouseDown += PlayerPreviewCanvas_PreviewMouseDown;
+            MapSetupCanvas.PreviewMouseDown += MapSetupCanvas_PreviewMouseDown;
+            SettingsSearchCanvas.PreviewMouseDown += SettingsSearchCanvas_PreviewMouseDown;
         }
+
+        // Performance optimized: Dedicated event handlers to avoid lambda allocations
+        private void ESPCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(ESPCanvas);
+        private void GeneralSettingsCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(GeneralSettingsCanvas);
+        private void LootSettingsCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(LootSettingsCanvas);
+        private void MemoryWritingCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(MemoryWritingCanvas);
+        private void WatchlistCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(WatchlistCanvas);
+        private void PlayerHistoryCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(PlayerHistoryCanvas);
+        private void LootFilterCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(LootFilterCanvas);
+        private void PlayerPreviewCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(PlayerPreviewCanvas);
+        private void MapSetupCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(MapSetupCanvas);
+        private void SettingsSearchCanvas_PreviewMouseDown(object s, MouseButtonEventArgs e) => BringPanelToFront(SettingsSearchCanvas);
 
         private void TogglePanelVisibility(string panelKey)
         {
@@ -2765,6 +2943,21 @@ namespace eft_dma_radar
                 ["MapSetup"] = new PanelInfo(MapSetupPanel, MapSetupCanvas, "MapSetup", 300, 300),
                 ["SettingsSearch"] = new PanelInfo(SettingsSearchPanel, SettingsSearchCanvas, "SettingsSearch", MIN_SEARCH_SETTINGS_PANEL_WIDTH, MIN_SEARCH_SETTINGS_PANEL_HEIGHT)
             };
+
+            // Performance: cache canvas list for BringPanelToFront to avoid repeated allocations
+            _allPanelCanvases = new List<Canvas>
+            {
+                GeneralSettingsCanvas,
+                LootSettingsCanvas,
+                MemoryWritingCanvas,
+                ESPCanvas,
+                WatchlistCanvas,
+                PlayerHistoryCanvas,
+                LootFilterCanvas,
+                PlayerPreviewCanvas,
+                MapSetupCanvas,
+                SettingsSearchCanvas
+            };
         }
 
         private void SavePanelPositions()
@@ -2790,6 +2983,10 @@ namespace eft_dma_radar
             }
         }
 
+        /// <summary>
+        /// Saves a single panel position to config with debounced save.
+        /// Performance optimized: uses debouncing to reduce I/O operations.
+        /// </summary>
         private void SaveSinglePanelPosition(string panelKey)
         {
             try
@@ -2801,6 +2998,9 @@ namespace eft_dma_radar
                     {
                         var posConfig = PanelPositionConfig.FromPanel(panelInfo.Panel, panelInfo.Canvas);
                         propInfo.SetValue(Config.PanelPositions, posConfig);
+
+                        // Performance: debounce config save to reduce I/O
+                        RequestDebouncedConfigSave();
                     }
                 }
             }
