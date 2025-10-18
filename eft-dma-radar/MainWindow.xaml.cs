@@ -203,9 +203,11 @@ namespace eft_dma_radar
         // Distance atlas: "0m" to "500m" every 1m (501 sprites, ~5-8MB)
         // Height atlas: "-50m" to "+50m" every 1m (100 sprites, ~1-2MB)
         // Loot name atlas: ALL item ShortNames from database (~1500-2000 sprites, ~15-20MB)
+        // Player info atlas: Common static strings (THERMAL, NVG, UBGL, etc.) (~20 sprites, ~100KB)
         private static TextAtlas _distanceAtlas;
         private static TextAtlas _heightAtlas;
         private static TextAtlas _lootNameAtlas;
+        private static TextAtlas _playerInfoAtlas;
 
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
@@ -541,6 +543,21 @@ namespace eft_dma_radar
                 LoneLogging.WriteLine($"WARNING: EftDataManager not initialized - loot name atlas skipped");
                 LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}, LootNames=false");
             }
+
+            // Create player info atlas: Common static strings that appear on players
+            // Eliminates double-draw overhead for THERMAL, NVG, UBGL, tags, etc.
+            var playerInfoStrings = new[]
+            {
+                "THERMAL", "NVG", "UBGL", "ERROR", "*",
+                // Add common alert tags
+                "BOSS", "GUARD", "RAIDER", "ROGUE", "CULTIST", "SNIPER",
+                // Add common price strings (round to nearest 100k for cache hits)
+                "100k₽", "200k₽", "300k₽", "400k₽", "500k₽", "600k₽", "700k₽", "800k₽", "900k₽",
+                "1M₽", "2M₽", "3M₽", "4M₽", "5M₽"
+            };
+            _playerInfoAtlas = TextAtlas.CreateCustomAtlas(SKPaints.TextLocalPlayer, playerInfoStrings);
+
+            LoneLogging.WriteLine($"Player info atlas initialized with {playerInfoStrings.Length} strings");
         }
 
         /// <summary>
@@ -557,6 +574,11 @@ namespace eft_dma_radar
         /// Gets the loot name atlas for rendering loot item names (ShortName).
         /// </summary>
         public static TextAtlas LootNameAtlas => _lootNameAtlas;
+
+        /// <summary>
+        /// Gets the player info atlas for rendering static player info strings (THERMAL, NVG, etc.).
+        /// </summary>
+        public static TextAtlas PlayerInfoAtlas => _playerInfoAtlas;
 
         private void btnDebug_Click(object sender, RoutedEventArgs e)
         {
@@ -2690,6 +2712,7 @@ namespace eft_dma_radar
                 _distanceAtlas?.Dispose(); // Dispose distance text atlas
                 _heightAtlas?.Dispose(); // Dispose height text atlas
                 _lootNameAtlas?.Dispose(); // Dispose loot name atlas
+                _playerInfoAtlas?.Dispose(); // Dispose player info atlas
 
                 Window = null;
 

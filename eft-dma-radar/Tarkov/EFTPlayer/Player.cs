@@ -1471,7 +1471,9 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
 
                 var namePoint = new SKPoint(point.X - (_cachedNameWidth / 2), baseYPosition - 0);
 
-                canvas.DrawText(nameText, namePoint, SKPaints.TextOutline);
+                // Performance optimization: Single-draw for player names (2x faster)
+                // Player names are dynamic (different for each player), so can't use atlas
+                // Skip outline to cut rendering in half - text is still readable
                 canvas.DrawText(nameText, namePoint, paints.Item2);
 
                 if (showImportantIndicator)
@@ -1485,8 +1487,16 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                         namePoint.Y + verticalOffset
                     );
 
-                    canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsteriskOutline);
-                    canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                    // Performance optimization: Use player info atlas for asterisk
+                    if (MainWindow.PlayerInfoAtlas != null && MainWindow.PlayerInfoAtlas.Contains("*"))
+                    {
+                        MainWindow.PlayerInfoAtlas.Draw(canvas, "*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                    }
+                    else
+                    {
+                        canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsteriskOutline);
+                        canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                    }
                 }
             }
             else if (showImportantIndicator)
@@ -1495,8 +1505,16 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                 var yPos = point.Y - 2 * MainWindow.UIScale;
                 var asteriskPoint = new SKPoint(point.X - (asteriskWidth / 2), yPos);
 
-                canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsteriskOutline);
-                canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                // Performance optimization: Use player info atlas for asterisk
+                if (MainWindow.PlayerInfoAtlas != null && MainWindow.PlayerInfoAtlas.Contains("*"))
+                {
+                    MainWindow.PlayerInfoAtlas.Draw(canvas, "*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                }
+                else
+                {
+                    canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsteriskOutline);
+                    canvas.DrawText("*", asteriskPoint, SKPaints.TextPulsingAsterisk);
+                }
             }
 
             var currentBottomY = point.Y + 20 * MainWindow.UIScale;
@@ -1596,8 +1614,18 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                     if (string.IsNullOrEmpty(line?.Trim()))
                         continue;
 
-                    canvas.DrawText(line, rightPoint, SKPaints.TextOutline);
-                    canvas.DrawText(line, rightPoint, paints.Item2);
+                    // Performance optimization: Use player info atlas for static strings (THERMAL, NVG, etc.)
+                    if (MainWindow.PlayerInfoAtlas != null && MainWindow.PlayerInfoAtlas.Contains(line))
+                    {
+                        // Ultra-fast atlas rendering - single draw, no outline overhead
+                        MainWindow.PlayerInfoAtlas.Draw(canvas, line, rightPoint, paints.Item2);
+                    }
+                    else
+                    {
+                        // Fallback to double-draw for dynamic text (prices, custom tags)
+                        canvas.DrawText(line, rightPoint, SKPaints.TextOutline);
+                        canvas.DrawText(line, rightPoint, paints.Item2);
+                    }
                     rightPoint.Offset(0, textSize);
                 }
             }
