@@ -1241,6 +1241,12 @@ namespace eft_dma_radar
                     DrawProfilerOverlay(canvas);
                 }
 
+                // AUTOMATED BENCHMARK: Draw status overlay
+                if (AutomatedBenchmark.Instance.IsRunning)
+                {
+                    DrawBenchmarkStatusOverlay(canvas);
+                }
+
                 // AUTOMATED BENCHMARK: Feed frame time and get target zoom if benchmark is running
                 if (inRaid && localPlayer is not null && AutomatedBenchmark.Instance.IsRunning)
                 {
@@ -1250,13 +1256,19 @@ namespace eft_dma_radar
 
                     if (targetLOD.HasValue)
                     {
+                        // Get LOD thresholds for this map
+                        Config.GetMapLODThresholds(mapID, out int lod0Threshold, out int lod1Threshold);
+
                         // Adjust zoom to reach target LOD
-                        // LOD 0 = close zoom (high), LOD 1 = medium, LOD 2 = far zoom (low)
+                        // Zoom range: 1-100 (1=closest, 100=farthest)
+                        // LOD 0: zoom < lod0Threshold (e.g., < 70)
+                        // LOD 1: zoom >= lod0Threshold && < lod1Threshold (e.g., 70-84)
+                        // LOD 2: zoom >= lod1Threshold (e.g., >= 85)
                         _zoom = targetLOD.Value switch
                         {
-                            0 => 3,  // Close zoom for LOD 0
-                            1 => 2,  // Medium zoom for LOD 1
-                            2 => 1,  // Far zoom for LOD 2
+                            0 => Math.Max(1, lod0Threshold - 10),     // Well into LOD 0 (e.g., 60 if threshold is 70)
+                            1 => (lod0Threshold + lod1Threshold) / 2, // Middle of LOD 1 (e.g., 77 if thresholds are 70-85)
+                            2 => Math.Min(100, lod1Threshold + 10),   // Well into LOD 2 (e.g., 95 if threshold is 85)
                             _ => _zoom
                         };
                     }
@@ -1331,6 +1343,103 @@ namespace eft_dma_radar
                 canvas.DrawText($"{indent}{section.Name}: {section.RecentAverageMs:F2}ms ({percentage:F0}%)", x, y, textPaint);
                 y += lineHeight;
             }
+        }
+
+        private void DrawBenchmarkStatusOverlay(SKCanvas canvas)
+        {
+            var benchmark = AutomatedBenchmark.Instance;
+            if (!benchmark.IsRunning) return;
+
+            var x = 10f;
+            var y = 30f;
+            var lineHeight = 20f;
+            var overlayWidth = 450f;
+
+            using var backgroundPaint = new SKPaint
+            {
+                Color = new SKColor(0, 0, 0, 220),
+                Style = SKPaintStyle.Fill
+            };
+
+            using var textPaint = new SKPaint
+            {
+                Color = SKColors.White,
+                TextSize = 16,
+                IsAntialias = true,
+                Typeface = SKTypeface.FromFamilyName("Consolas", SKFontStyle.Bold)
+            };
+
+            // Calculate overlay height
+            var overlayHeight = 7 * lineHeight + 30f;
+            canvas.DrawRect(5, 10, overlayWidth, overlayHeight, backgroundPaint);
+
+            // Header
+            textPaint.Color = SKColors.Yellow;
+            canvas.DrawText($"AUTOMATED BENCHMARK RUNNING", x, y, textPaint);
+            y += lineHeight * 1.5f;
+
+            // State
+            textPaint.TextSize = 14;
+            textPaint.Color = SKColors.Cyan;
+            string stateText = benchmark.State switch
+            {
+                AutomatedBenchmark.BenchmarkState.ZoomingToLOD0 => "Zooming to LOD 0...",
+                AutomatedBenchmark.BenchmarkState.ZoomingToLOD1 => "Zooming to LOD 1...",
+                AutomatedBenchmark.BenchmarkState.ZoomingToLOD2 => "Zooming to LOD 2...",
+                AutomatedBenchmark.BenchmarkState.WarmingUp => "Warming Up...",
+                AutomatedBenchmark.BenchmarkState.Sampling => "Sampling Data...",
+                _ => "Unknown"
+            };
+            canvas.DrawText($"State: {stateText}", x, y, textPaint);
+            y += lineHeight;
+
+            // Current LOD
+            textPaint.Color = SKColors.White;
+            canvas.DrawText($"Current LOD: {benchmark.CurrentLOD}", x, y, textPaint);
+            y += lineHeight;
+
+            // Progress
+            var progress = benchmark.Progress;
+            textPaint.Color = SKColors.LightGreen;
+            canvas.DrawText($"Progress: {progress}%", x, y, textPaint);
+            y += lineHeight;
+
+            // Progress bar
+            var barX = x;
+            var barY = y;
+            var barWidth = overlayWidth - 20f;
+            var barHeight = 20f;
+
+            using var barBgPaint = new SKPaint
+            {
+                Color = new SKColor(50, 50, 50, 255),
+                Style = SKPaintStyle.Fill
+            };
+
+            using var barFillPaint = new SKPaint
+            {
+                Color = new SKColor(0, 200, 0, 255),
+                Style = SKPaintStyle.Fill
+            };
+
+            using var barOutlinePaint = new SKPaint
+            {
+                Color = SKColors.White,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 1f
+            };
+
+            canvas.DrawRect(barX, barY, barWidth, barHeight, barBgPaint);
+            canvas.DrawRect(barX, barY, barWidth * (progress / 100f), barHeight, barFillPaint);
+            canvas.DrawRect(barX, barY, barWidth, barHeight, barOutlinePaint);
+            y += barHeight + lineHeight * 0.5f;
+
+            // Instructions
+            textPaint.TextSize = 12;
+            textPaint.Color = SKColors.LightGray;
+            canvas.DrawText("This will test LOD 0, 1, and 2 sequentially", x, y, textPaint);
+            y += lineHeight * 0.8f;
+            canvas.DrawText("Results will be exported to Desktop when complete", x, y, textPaint);
         }
 
         private static int DrawPriority(PlayerType t) => t switch
