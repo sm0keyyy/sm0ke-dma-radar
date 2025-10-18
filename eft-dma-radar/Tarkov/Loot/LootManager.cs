@@ -177,6 +177,13 @@ namespace eft_dma_radar.Tarkov.Loot
                                                 var className = classNameUtf8.ToString();
                                                 var objectName = objectNameUtf8.ToString();
 
+                                                // Debug: Log first 5 unique classNames to see what we're getting
+                                                if (i < 5)
+                                                {
+                                                    var debugPath2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_classnames.txt");
+                                                    File.AppendAllText(debugPath2, $"[{i}] ClassName: '{className}', ObjectName: '{objectName}'\n");
+                                                }
+
                                                 // Determine loot type early to batch the right reads
                                                 var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
                                                 var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
