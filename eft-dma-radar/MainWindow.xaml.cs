@@ -202,10 +202,8 @@ namespace eft_dma_radar
         // Performance optimization: Pre-rendered text atlases for 10-50x faster text rendering
         // Distance atlas: "0m" to "500m" every 1m (501 sprites, ~5-8MB)
         // Height atlas: "-50m" to "+50m" every 1m (100 sprites, ~1-2MB)
-        // Icon atlas: All geometric shapes (arrows, circles, X markers, etc.) at multiple sizes (~5-10MB)
         private static TextAtlas _distanceAtlas;
         private static TextAtlas _heightAtlas;
-        private static TextAtlas _iconAtlas;
 
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
@@ -518,7 +516,7 @@ namespace eft_dma_radar
 
         /// <summary>
         /// Initializes text atlases for ultra-fast text rendering.
-        /// Pre-renders all distance and height strings + geometric icons at startup for 10-50x performance gain.
+        /// Pre-renders all distance and height strings at startup for 10-50x performance gain.
         /// </summary>
         private static void InitializeTextAtlases()
         {
@@ -528,11 +526,7 @@ namespace eft_dma_radar
             // Create height atlas: "-50m" to "+50m" every 1 meter (100 sprites, ~1-2MB)
             _heightAtlas = TextAtlas.CreateHeightAtlas(SKPaints.TextLocalPlayer);
 
-            // Create icon atlas: All geometric shapes at multiple sizes (48 sprites, ~5-10MB)
-            // Includes: arrows, circles, X markers, dots, crosses, squares, diamonds
-            _iconAtlas = TextAtlas.CreateIconAtlas();
-
-            LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}, Icons={_iconAtlas != null}");
+            LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}");
         }
 
         /// <summary>
@@ -544,11 +538,6 @@ namespace eft_dma_radar
         /// Gets the height atlas for rendering height difference text.
         /// </summary>
         public static TextAtlas HeightAtlas => _heightAtlas;
-
-        /// <summary>
-        /// Gets the icon atlas for rendering geometric shapes (arrows, circles, X markers, etc.).
-        /// </summary>
-        public static TextAtlas IconAtlas => _iconAtlas;
 
         private void btnDebug_Click(object sender, RoutedEventArgs e)
         {
@@ -2681,7 +2670,6 @@ namespace eft_dma_radar
                 _dimmingPaint?.Dispose(); // Dispose dimming paint object
                 _distanceAtlas?.Dispose(); // Dispose distance text atlas
                 _heightAtlas?.Dispose(); // Dispose height text atlas
-                _iconAtlas?.Dispose(); // Dispose icon atlas
 
                 Window = null;
 

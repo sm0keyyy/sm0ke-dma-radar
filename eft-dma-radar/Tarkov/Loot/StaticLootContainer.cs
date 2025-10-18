@@ -55,49 +55,25 @@ namespace eft_dma_radar.Tarkov.Loot
 
             if (heightDiff > HEIGHT_INDICATOR_THRESHOLD)
             {
-                // Use pre-rendered icon atlas for up arrow (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "up_arrow_4", point, SKPaints.PaintContainerLoot);
-                }
-                else
-                {
-                    using var path = point.GetUpArrow(4);
-                    canvas.DrawPath(path, SKPaints.ShapeOutline);
-                    canvas.DrawPath(path, SKPaints.PaintContainerLoot);
-                }
+                using var path = point.GetUpArrow(4);
+                canvas.DrawPath(path, SKPaints.ShapeOutline);
+                canvas.DrawPath(path, SKPaints.PaintContainerLoot);
                 distanceYOffset = 18f * MainWindow.UIScale;
                 nameYOffset = 6f * MainWindow.UIScale;
             }
             else if (heightDiff < -HEIGHT_INDICATOR_THRESHOLD)
             {
-                // Use pre-rendered icon atlas for down arrow (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "down_arrow_4", point, SKPaints.PaintContainerLoot);
-                }
-                else
-                {
-                    using var path = point.GetDownArrow(4);
-                    canvas.DrawPath(path, SKPaints.ShapeOutline);
-                    canvas.DrawPath(path, SKPaints.PaintContainerLoot);
-                }
+                using var path = point.GetDownArrow(4);
+                canvas.DrawPath(path, SKPaints.ShapeOutline);
+                canvas.DrawPath(path, SKPaints.PaintContainerLoot);
                 distanceYOffset = 12f * MainWindow.UIScale;
                 nameYOffset = 1f * MainWindow.UIScale;
             }
             else
             {
-                // Use pre-rendered icon atlas for circle (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "circle_4", point, SKPaints.PaintContainerLoot);
-                }
-                else
-                {
-                    var size = 4 * MainWindow.UIScale;
-                    canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
-                    canvas.DrawCircle(point, size, SKPaints.PaintContainerLoot);
-                }
+                var size = 4 * MainWindow.UIScale;
+                canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
+                canvas.DrawCircle(point, size, SKPaints.PaintContainerLoot);
                 distanceYOffset = 16f * MainWindow.UIScale;
                 nameYOffset = 4f * MainWindow.UIScale;
             }

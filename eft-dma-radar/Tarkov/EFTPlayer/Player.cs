@@ -1639,32 +1639,9 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
 
             SKPaints.ShapeOutline.StrokeWidth = paints.Item1.StrokeWidth + 2f * MainWindow.UIScale;
 
-            var size = 6f * MainWindow.UIScale;
-
-            // Use pre-rendered icon atlas for player marker circle (10-50x faster)
-            if (MainWindow.IconAtlas != null)
-            {
-                // Find closest size in atlas
-                int atlasSize = size switch
-                {
-                    <= 3.5f => 3,
-                    <= 4.5f => 4,
-                    <= 5.5f => 5,
-                    <= 7f => 6,
-                    <= 9f => 8,
-                    _ => 10
-                };
-
-                // Draw outline and fill using atlas
-                MainWindow.IconAtlas.DrawIcon(canvas, $"circle_{atlasSize}", point, SKPaints.ShapeOutline);
-                MainWindow.IconAtlas.DrawIcon(canvas, $"circle_{atlasSize}", point, paints.Item1);
-            }
-            else
-            {
-                // Fallback to runtime drawing
-                canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
-                canvas.DrawCircle(point, size, paints.Item1);
-            }
+            var size = 6 * MainWindow.UIScale;
+            canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
+            canvas.DrawCircle(point, size, paints.Item1);
 
             var aimlineLength = typeSettings.AimlineLength;
 
@@ -1682,41 +1659,20 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void DrawDeathMarker(SKCanvas canvas, SKPoint point, SKColor color)
         {
-            var size = 6f * MainWindow.UIScale;
+            var length = 6 * MainWindow.UIScale;
 
-            // Use pre-rendered icon atlas for 10-50x faster rendering
-            if (MainWindow.IconAtlas != null)
+            using var corpseLinePaint = new SKPaint
             {
-                // Find closest size in atlas (3, 4, 5, 6, 8, 10)
-                int atlasSize = size switch
-                {
-                    <= 3.5f => 3,
-                    <= 4.5f => 4,
-                    <= 5.5f => 5,
-                    <= 7f => 6,
-                    <= 9f => 8,
-                    _ => 10
-                };
+                Color = color,
+                StrokeWidth = SKPaints.PaintDeathMarker.StrokeWidth,
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke
+            };
 
-                using var tintPaint = new SKPaint { Color = color };
-                MainWindow.IconAtlas.DrawIcon(canvas, $"x_marker_{atlasSize}", point, tintPaint);
-            }
-            else
-            {
-                // Fallback to runtime drawing
-                using var corpseLinePaint = new SKPaint
-                {
-                    Color = color,
-                    StrokeWidth = SKPaints.PaintDeathMarker.StrokeWidth,
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Stroke
-                };
-
-                canvas.DrawLine(new SKPoint(point.X - size, point.Y + size),
-                    new SKPoint(point.X + size, point.Y - size), corpseLinePaint);
-                canvas.DrawLine(new SKPoint(point.X - size, point.Y - size),
-                    new SKPoint(point.X + size, point.Y + size), corpseLinePaint);
-            }
+            canvas.DrawLine(new SKPoint(point.X - length, point.Y + length),
+                new SKPoint(point.X + length, point.Y - length), corpseLinePaint);
+            canvas.DrawLine(new SKPoint(point.X - length, point.Y - length),
+                new SKPoint(point.X + length, point.Y + length), corpseLinePaint);
         }
 
         /// <summary>

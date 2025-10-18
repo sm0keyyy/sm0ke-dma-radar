@@ -436,45 +436,21 @@ namespace eft_dma_radar.Tarkov.Loot
                 // At extreme zoom, just draw the icon/marker without text
                 if (heightDiff > HEIGHT_INDICATOR_THRESHOLD)
                 {
-                    // Use pre-rendered icon atlas (10-50x faster)
-                    if (MainWindow.IconAtlas != null)
-                    {
-                        MainWindow.IconAtlas.DrawIcon(canvas, "up_arrow_5", point, paints.Item1);
-                    }
-                    else
-                    {
-                        using var path = point.GetUpArrow(5);
-                        canvas.DrawPath(path, SKPaints.ShapeOutline);
-                        canvas.DrawPath(path, paints.Item1);
-                    }
+                    using var path = point.GetUpArrow(5);
+                    canvas.DrawPath(path, SKPaints.ShapeOutline);
+                    canvas.DrawPath(path, paints.Item1);
                 }
                 else if (heightDiff < -HEIGHT_INDICATOR_THRESHOLD)
                 {
-                    // Use pre-rendered icon atlas (10-50x faster)
-                    if (MainWindow.IconAtlas != null)
-                    {
-                        MainWindow.IconAtlas.DrawIcon(canvas, "down_arrow_5", point, paints.Item1);
-                    }
-                    else
-                    {
-                        using var path = point.GetDownArrow(5);
-                        canvas.DrawPath(path, SKPaints.ShapeOutline);
-                        canvas.DrawPath(path, paints.Item1);
-                    }
+                    using var path = point.GetDownArrow(5);
+                    canvas.DrawPath(path, SKPaints.ShapeOutline);
+                    canvas.DrawPath(path, paints.Item1);
                 }
                 else
                 {
-                    // Use pre-rendered icon atlas (10-50x faster)
-                    if (MainWindow.IconAtlas != null)
-                    {
-                        MainWindow.IconAtlas.DrawIcon(canvas, "circle_5", point, paints.Item1);
-                    }
-                    else
-                    {
-                        var size = 5 * MainWindow.UIScale;
-                        canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
-                        canvas.DrawCircle(point, size, paints.Item1);
-                    }
+                    var size = 5 * MainWindow.UIScale;
+                    canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
+                    canvas.DrawCircle(point, size, paints.Item1);
                 }
                 return; // Skip all text at extreme zoom
             }
@@ -492,49 +468,25 @@ namespace eft_dma_radar.Tarkov.Loot
 
             if (heightDiff > HEIGHT_INDICATOR_THRESHOLD)
             {
-                // Use pre-rendered icon atlas (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "up_arrow_5", point, paints.Item1);
-                }
-                else
-                {
-                    using var path = point.GetUpArrow(5);
-                    canvas.DrawPath(path, SKPaints.ShapeOutline);
-                    canvas.DrawPath(path, paints.Item1);
-                }
+                using var path = point.GetUpArrow(5);
+                canvas.DrawPath(path, SKPaints.ShapeOutline);
+                canvas.DrawPath(path, paints.Item1);
                 distanceYOffset = 18f * MainWindow.UIScale;
                 nameYOffset = 6f * MainWindow.UIScale;
             }
             else if (heightDiff < -HEIGHT_INDICATOR_THRESHOLD)
             {
-                // Use pre-rendered icon atlas (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "down_arrow_5", point, paints.Item1);
-                }
-                else
-                {
-                    using var path = point.GetDownArrow(5);
-                    canvas.DrawPath(path, SKPaints.ShapeOutline);
-                    canvas.DrawPath(path, paints.Item1);
-                }
+                using var path = point.GetDownArrow(5);
+                canvas.DrawPath(path, SKPaints.ShapeOutline);
+                canvas.DrawPath(path, paints.Item1);
                 distanceYOffset = 12f * MainWindow.UIScale;
                 nameYOffset = 1f * MainWindow.UIScale;
             }
             else
             {
-                // Use pre-rendered icon atlas (10-50x faster)
-                if (MainWindow.IconAtlas != null)
-                {
-                    MainWindow.IconAtlas.DrawIcon(canvas, "circle_5", point, paints.Item1);
-                }
-                else
-                {
-                    var size = 5 * MainWindow.UIScale;
-                    canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
-                    canvas.DrawCircle(point, size, paints.Item1);
-                }
+                var size = 5 * MainWindow.UIScale;
+                canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
+                canvas.DrawCircle(point, size, paints.Item1);
                 distanceYOffset = 16f * MainWindow.UIScale;
                 nameYOffset = 4f * MainWindow.UIScale;
             }
