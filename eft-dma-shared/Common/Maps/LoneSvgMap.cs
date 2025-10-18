@@ -14,6 +14,16 @@ namespace eft_dma_shared.Common.Maps
     {
         private readonly LoneMapConfig.LoadedLayer[] _layers;
 
+        // Performance: Cache layer filtering to avoid LINQ allocations every frame
+        private float _cachedPlayerHeight = float.NaN;
+        private LoneMapConfig.LoadedLayer[] _cachedVisibleLayers = Array.Empty<LoneMapConfig.LoadedLayer>();
+        private const float HEIGHT_CHANGE_THRESHOLD = 0.5f; // Only recalculate if height changes > 0.5 units
+
+        // Pre-computed metadata to avoid repeated calculations
+        private bool _hasMultipleLayers;
+        private int _lastLayerIndex;
+        private bool _anyLayerDimsBase;
+
         public string ID { get; }
         public LoneMapConfig Config { get; }
 
@@ -52,6 +62,10 @@ namespace eft_dma_shared.Common.Maps
                     }
                 }
                 _layers = layers.Order().ToArray();
+
+                // Pre-compute metadata to avoid repeated calculations in Draw()
+                _hasMultipleLayers = _layers.Length > 1;
+                _lastLayerIndex = _layers.Length - 1;
             }
             catch
             {
@@ -65,14 +79,29 @@ namespace eft_dma_shared.Common.Maps
 
         public void Draw(SKCanvas canvas, float playerHeight, SKRect mapBounds, SKRect windowBounds)
         {
-            var layers = _layers // Use overridden equality operators
-                .Where(layer => layer.IsHeightInRange(playerHeight))
-                .Order()
-                .ToArray();
-            foreach (var layer in layers)
+            // Check if we need to recalculate visible layers
+            if (float.IsNaN(_cachedPlayerHeight) ||
+                Math.Abs(playerHeight - _cachedPlayerHeight) > HEIGHT_CHANGE_THRESHOLD)
             {
+                // Recalculate and cache visible layers
+                _cachedVisibleLayers = _layers
+                    .Where(layer => layer.IsHeightInRange(playerHeight))
+                    .ToArray(); // Note: .Order() removed - layers already sorted at load time
+                _cachedPlayerHeight = playerHeight;
+
+                // Update metadata for paint selection
+                _anyLayerDimsBase = _cachedVisibleLayers.Any(x => !x.DimBaseLayer);
+            }
+
+            // Use cached layers - dramatically faster than LINQ operations every frame
+            for (int i = 0; i < _cachedVisibleLayers.Length; i++)
+            {
+                var layer = _cachedVisibleLayers[i];
                 SKPaint paint;
-                if (layers.Length > 1 && layer != layers.Last() && !(layer.IsBaseLayer && layers.Any(x => !x.DimBaseLayer)))
+
+                // Determine paint based on layer position and dimming settings
+                if (_cachedVisibleLayers.Length > 1 && i != _cachedVisibleLayers.Length - 1 &&
+                    !(layer.IsBaseLayer && _anyLayerDimsBase))
                 {
                     paint = SharedPaints.PaintBitmapAlpha;
                 }
