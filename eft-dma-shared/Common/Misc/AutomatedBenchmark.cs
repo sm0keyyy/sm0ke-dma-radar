@@ -50,6 +50,15 @@ public class AutomatedBenchmark
                 return;
             }
 
+            // Enable profiler during benchmark to capture DMA thread metrics
+            // We'll use this data but exclude profiler overhead from frame time calculations
+            if (!PerformanceProfiler.Instance.Enabled)
+            {
+                LoneLogging.WriteLine("[Benchmark] Enabling performance profiler to capture DMA thread metrics");
+                PerformanceProfiler.Instance.Enabled = true;
+                PerformanceProfiler.Instance.Reset();
+            }
+
             LoneLogging.WriteLine("=== STARTING AUTOMATED BENCHMARK ===");
             LoneLogging.WriteLine("This will test LOD 0, 1, and 2 sequentially.");
             LoneLogging.WriteLine($"Each LOD: {WARMUP_FRAMES} warmup frames + {SAMPLE_FRAMES} sample frames");
@@ -152,6 +161,29 @@ public class AutomatedBenchmark
         var onePercentLow = sorted.Skip(0).Take(Math.Max(1, onePercentIndex)).Average();
         var zeroPointOnePercentLow = sorted.Skip(0).Take(Math.Max(1, zeroPointOnePercentIndex)).Average();
 
+        // Capture DMA thread profiling stats
+        var dmaThreadStats = new Dictionary<string, ThreadTimingStats>();
+        var profilerStats = PerformanceProfiler.Instance.GetStats();
+
+        // Filter for DMA worker threads (T1, T2, T4) and their sub-sections
+        var dmaThreadNames = new[] { "T1 Realtime Loop", "T2 Misc Loop", "T4 Fast Loop",
+                                      "  T2 Loot", "  T2 Gear", "  T2 Exfils", "  T2 ValidateTransforms",
+                                      "  T2 Wishlist", "  T2 Quests", "  T4 Hands (Batched)", "  T4 Firearm" };
+
+        foreach (var section in profilerStats.Sections.Where(s => dmaThreadNames.Any(n => s.Name.Contains(n))))
+        {
+            dmaThreadStats[section.Name] = new ThreadTimingStats
+            {
+                ThreadName = section.Name,
+                AverageMs = section.AverageMs,
+                RecentAverageMs = section.RecentAverageMs,
+                MinMs = section.MinMs,
+                MaxMs = section.MaxMs,
+                SampleCount = section.SampleCount,
+                PercentageOfFrame = (section.AverageMs / average) * 100.0
+            };
+        }
+
         return new LODResult
         {
             LODLevel = lodLevel,
@@ -163,7 +195,8 @@ public class AutomatedBenchmark
             ZeroPointOnePercentLowMs = zeroPointOnePercentLow,
             AverageFPS = 1000.0 / average,
             OnePercentLowFPS = 1000.0 / onePercentLow,
-            ZeroPointOnePercentLowFPS = 1000.0 / zeroPointOnePercentLow
+            ZeroPointOnePercentLowFPS = 1000.0 / zeroPointOnePercentLow,
+            DMAThreadStats = dmaThreadStats
         };
     }
 
@@ -180,6 +213,24 @@ public class AutomatedBenchmark
             LoneLogging.WriteLine($"{result.LODLevel,-4} {result.AverageFPS,8:F1} {result.OnePercentLowFPS,8:F1} {result.ZeroPointOnePercentLowFPS,8:F1} | " +
                                  $"{result.AverageMs,8:F2} {result.OnePercentLowMs,8:F2} {result.ZeroPointOnePercentLowMs,8:F2} | " +
                                  $"{result.MinMs,8:F2} {result.MaxMs,8:F2}");
+
+            // Display DMA thread stats for this LOD
+            if (result.DMAThreadStats.Any())
+            {
+                LoneLogging.WriteLine($"\n  DMA Thread Performance (LOD {result.LODLevel}):");
+                LoneLogging.WriteLine($"  {"Thread",-30} {"Avg ms",10} {"Recent",10} {"Min ms",10} {"Max ms",10} {"Samples",10} {"% Frame",8}");
+                LoneLogging.WriteLine($"  {new string('-', 95)}");
+
+                var orderedStats = result.DMAThreadStats.Values
+                    .OrderByDescending(s => s.AverageMs);
+
+                foreach (var stat in orderedStats)
+                {
+                    LoneLogging.WriteLine($"  {stat.ThreadName,-30} {stat.AverageMs,10:F2} {stat.RecentAverageMs,10:F2} " +
+                                         $"{stat.MinMs,10:F2} {stat.MaxMs,10:F2} {stat.SampleCount,10} {stat.PercentageOfFrame,7:F1}%");
+                }
+                LoneLogging.WriteLine(""); // Empty line separator
+            }
         }
 
         // Export to JSON
@@ -244,5 +295,19 @@ public class AutomatedBenchmark
         public double AverageFPS { get; set; }
         public double OnePercentLowFPS { get; set; }
         public double ZeroPointOnePercentLowFPS { get; set; }
+
+        // DMA Thread Performance Metrics
+        public Dictionary<string, ThreadTimingStats> DMAThreadStats { get; set; } = new();
+    }
+
+    public class ThreadTimingStats
+    {
+        public string ThreadName { get; set; } = "";
+        public double AverageMs { get; set; }
+        public double RecentAverageMs { get; set; }
+        public double MinMs { get; set; }
+        public double MaxMs { get; set; }
+        public int SampleCount { get; set; }
+        public double PercentageOfFrame { get; set; }
     }
 }
