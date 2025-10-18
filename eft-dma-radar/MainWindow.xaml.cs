@@ -467,6 +467,10 @@ namespace eft_dma_radar
                     // Draw Map
                     map.Draw(canvas, localPlayer.Position.Y, mapParams.Bounds, mapCanvasBounds);
 
+                    // Cache canvas dimensions for viewport culling (used multiple times)
+                    var canvasWidth = (float)skCanvas.ActualWidth;
+                    var canvasHeight = (float)skCanvas.ActualHeight;
+
                     // Update 'important' / quest item asterisk
                     SKPaints.UpdatePulsingAsteriskColor();
 
@@ -490,6 +494,10 @@ namespace eft_dma_radar
                         {
                             foreach (var player in ordered)
                             {
+                                // Viewport culling: skip players that are off-screen
+                                if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
+                                    continue;
+
                                 player.Draw(canvas, mapParams, localPlayer);
                             }
                         }
@@ -505,6 +513,10 @@ namespace eft_dma_radar
                                 if (LootSettingsControl.ContainerIsTracked(container.ID ?? "NULL"))
                                 {
                                     if (Config.Containers.HideSearched && container.Searched)
+                                        continue;
+
+                                    // Viewport culling: skip containers that are off-screen
+                                    if (!IsWorldPosInViewport(container.Position, mapParams, canvasWidth, canvasHeight))
                                         continue;
 
                                     container.Draw(canvas, mapParams, localPlayer);
@@ -525,20 +537,50 @@ namespace eft_dma_radar
 
                         if (loot is not null)
                         {
-                            // Performance optimized: use direct iteration, filter in reverse without allocating
-                            // This is more efficient than .Where().Reverse() which creates intermediate collections
-                            foreach (var item in loot.Reverse())
+                            // Performance optimized: iterate backwards by index to avoid Reverse() allocation
+                            // IReadOnlyList allows direct indexed access without creating intermediate collections
+                            if (loot is IReadOnlyList<LootItem> lootList)
                             {
-                                // Skip quest items (handled separately below)
-                                if (item is QuestItem)
-                                    continue;
+                                for (int i = lootList.Count - 1; i >= 0; i--)
+                                {
+                                    var item = lootList[i];
 
-                                // Early-out: skip corpses if corpse rendering is disabled
-                                if (!corpseEnabled && item is LootCorpse)
-                                    continue;
+                                    // Skip quest items (handled separately below)
+                                    if (item is QuestItem)
+                                        continue;
 
-                                item.CheckNotify();
-                                item.Draw(canvas, mapParams, localPlayer);
+                                    // Early-out: skip corpses if corpse rendering is disabled
+                                    if (!corpseEnabled && item is LootCorpse)
+                                        continue;
+
+                                    // Viewport culling: skip items that are off-screen
+                                    if (!IsWorldPosInViewport(item.Position, mapParams, canvasWidth, canvasHeight))
+                                        continue;
+
+                                    item.CheckNotify();
+                                    item.Draw(canvas, mapParams, localPlayer);
+                                }
+                            }
+                            else
+                            {
+                                // Fallback for non-list implementations
+                                foreach (var item in loot.Reverse())
+                                {
+                                    // Skip quest items (handled separately below)
+                                    if (item is QuestItem)
+                                        continue;
+
+                                    // Early-out: skip corpses if corpse rendering is disabled
+                                    if (!corpseEnabled && item is LootCorpse)
+                                        continue;
+
+                                    // Viewport culling: skip items that are off-screen
+                                    if (!IsWorldPosInViewport(item.Position, mapParams, canvasWidth, canvasHeight))
+                                        continue;
+
+                                    item.CheckNotify();
+                                    item.Draw(canvas, mapParams, localPlayer);
+                                }
                             }
                         }
                     }
@@ -658,6 +700,10 @@ namespace eft_dma_radar
                         {
                             foreach (var player in ordered)
                             {
+                                // Viewport culling: skip players that are off-screen
+                                if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
+                                    continue;
+
                                 player.Draw(canvas, mapParams, localPlayer);
                             }
                         }
@@ -748,6 +794,17 @@ namespace eft_dma_radar
         {
             return position.X >= -margin && position.X <= canvasWidth + margin &&
                    position.Y >= -margin && position.Y <= canvasHeight + margin;
+        }
+
+        /// <summary>
+        /// Checks if a world position would be visible in the viewport when converted to screen coordinates.
+        /// Performance optimization to skip drawing off-screen entities.
+        /// </summary>
+        private static bool IsWorldPosInViewport(System.Numerics.Vector3 worldPos, LoneMapParams mapParams, float canvasWidth, float canvasHeight, float margin = 100f)
+        {
+            var mapPos = worldPos.ToMapPos(mapParams.Map);
+            var screenPos = mapPos.ToZoomedPos(mapParams);
+            return IsInViewport(screenPos, canvasWidth, canvasHeight, margin);
         }
 
         /// <summary>
