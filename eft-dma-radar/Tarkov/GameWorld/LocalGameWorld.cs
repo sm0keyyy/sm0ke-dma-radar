@@ -525,11 +525,23 @@ namespace eft_dma_radar.Tarkov.GameWorld
 
         /// <summary>
         /// Refresh Gear Manager
+        /// Throttled to every 2 seconds (40 T2 cycles) since gear rarely changes during combat.
+        /// This prevents massive performance hit from recursive synchronous reads.
         /// </summary>
+        private int _gearRefreshCounter = 0;
+        private const int GEAR_REFRESH_INTERVAL = 40; // Every 2000ms (40 cycles * 50ms)
+
         private void RefreshGear()
         {
             try
             {
+                // Throttle gear refresh to every 2 seconds instead of every 50ms
+                // Gear doesn't change frequently enough to justify constant scanning
+                if (++_gearRefreshCounter < GEAR_REFRESH_INTERVAL)
+                    return;
+
+                _gearRefreshCounter = 0;
+
                 var players = _rgtPlayers
                     .Where(x => x.IsHostileActive);
                 if (players is not null && players.Any())
