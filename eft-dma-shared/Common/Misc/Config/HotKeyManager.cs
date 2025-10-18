@@ -126,7 +126,6 @@ namespace eft_dma_shared.Common.Misc.Data.EFT
         [JsonPropertyName("questInfoWidget")] public HotkeyEntry QuestInfoWidget { get; set; } = new();
         [JsonPropertyName("connectGroups")] public HotkeyEntry ConnectGroups { get; set; } = new();
         [JsonPropertyName("maskNames")] public HotkeyEntry MaskNames { get; set; } = new();
-        [JsonPropertyName("playersOnTop")] public HotkeyEntry PlayersOnTop { get; set; } = new();
         [JsonPropertyName("zoomOut")] public HotkeyEntry ZoomOut { get; set; } = new();
         [JsonPropertyName("zoomIn")] public HotkeyEntry ZoomIn { get; set; } = new();
         [JsonPropertyName("battleMode")] public HotkeyEntry BattleMode { get; set; } = new();

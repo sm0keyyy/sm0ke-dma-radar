@@ -896,7 +896,6 @@ namespace eft_dma_radar.UI.Pages
             {
                 ["Connect Groups"] = Config.ConnectGroups,
                 ["Mask Names"] = Config.MaskNames,
-                ["Players on Top"] = Config.PlayersOnTop,
                 ["Auto Ammo Filter"] = Config.AutoAmmoFilter
             };
 
@@ -2024,9 +2023,6 @@ namespace eft_dma_radar.UI.Pages
                     case "Mask Names":
                         Config.MaskNames = isSelected;
                         break;
-                    case "Players on Top":
-                        Config.PlayersOnTop = isSelected;
-                        break;
                     case "Auto Ammo Filter":
                         Config.AutoAmmoFilter = isSelected;
                         break;
@@ -3047,10 +3043,6 @@ namespace eft_dma_radar.UI.Pages
                 case nameof(HotkeyConfig.MaskNames):
                     Config.MaskNames = isActive;
                     UpdateSpecificGeneralOption("Mask Names", isActive);
-                    break;
-                case nameof(HotkeyConfig.PlayersOnTop):
-                    Config.PlayersOnTop = isActive;
-                    UpdateSpecificGeneralOption("Players on Top", isActive);
                     break;
                 case nameof(HotkeyConfig.ZoomIn):
                     ExecuteContinuousAction(actionKey, () => mainWindow.ZoomIn(HK_ZoomAmt));

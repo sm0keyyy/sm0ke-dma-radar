@@ -490,8 +490,6 @@ namespace eft_dma_radar.UI.ESP
                         return Config.ConnectGroups;
                     case "Mask Names":
                         return Config.MaskNames;
-                    case "Players On Top":
-                        return Config.PlayersOnTop;
                     case "Zoom Out":
                     case "Zoom In":
                         return false;

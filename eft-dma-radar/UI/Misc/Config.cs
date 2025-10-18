@@ -510,12 +510,6 @@ namespace eft_dma_radar.UI.Misc
         public bool MaskNames { get; set; } = true;
 
         /// <summary>
-        /// Replace all names with '<Hidden>'
-        /// </summary>
-        [JsonPropertyName("playersOnTop")]
-        public bool PlayersOnTop { get; set; } = true;
-
-        /// <summary>
         /// Enable player dimming zones on radar
         /// </summary>
         [JsonPropertyName("playerDimmingEnabled")]

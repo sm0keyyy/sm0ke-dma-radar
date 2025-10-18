@@ -594,28 +594,97 @@ namespace eft_dma_radar
 
                     var battleMode = Config.BattleMode;
 
-                    // Performance optimized: use helper method
-                    if (!Config.PlayersOnTop && Config.ConnectGroups)
+                    // === LAYER 1: BACKGROUND ENTITIES (Z=100-199) ===
+
+                    if (MineEntitySettings.Enabled && GameData.Mines.TryGetValue(mapID, out var mines))
                     {
-                        DrawGroupConnections(canvas, allPlayers, map, mapParams);
+                        foreach (ref var mine in mines.Span)
+                        {
+                            var dist = Vector3.Distance(localPlayer.Position, mine);
+                            if (dist > MineEntitySettings.RenderDistance)
+                                continue;
+
+                            var mineZoomedPos = mine.ToMapPos(map.Config).ToZoomedPos(mapParams);
+
+                            var length = 3.5f * MainWindow.UIScale;
+
+                            canvas.DrawLine(new SKPoint(mineZoomedPos.X - length, mineZoomedPos.Y + length),
+                                           new SKPoint(mineZoomedPos.X + length, mineZoomedPos.Y - length),
+                                           SKPaints.PaintExplosives);
+                            canvas.DrawLine(new SKPoint(mineZoomedPos.X - length, mineZoomedPos.Y - length),
+                                           new SKPoint(mineZoomedPos.X + length, mineZoomedPos.Y + length),
+                                           SKPaints.PaintExplosives);
+                        }
                     }
 
-                    if (!Config.PlayersOnTop)
+                    if (!battleMode && Switch.Settings.Enabled)
                     {
-                        // Performance optimized: use cached ordered players list
-                        var ordered = GetOrderedPlayers(allPlayers, localPlayer);
-                        if (ordered is not null)
+                        foreach (var swtch in Switches)
                         {
-                            foreach (var player in ordered)
+                            // Apply proximity-based dimming to reduce clutter near players
+                            float opacity = CalculateEntityOpacityNearPlayers(swtch.Position, allPlayers, localPlayer, map, mapParams);
+                            if (opacity < 1.0f)
                             {
-                                // Viewport culling: skip players that are off-screen
-                                if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
-                                    continue;
-
-                                player.Draw(canvas, mapParams, localPlayer);
+                                canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                swtch.Draw(canvas, mapParams, localPlayer);
+                                canvas.Restore();
+                            }
+                            else
+                            {
+                                swtch.Draw(canvas, mapParams, localPlayer);
                             }
                         }
                     }
+
+                    if (!battleMode && Door.Settings.Enabled)
+                    {
+                        var doorsSet = Memory.Game?.Interactables._Doors;
+                        if (doorsSet is not null && doorsSet.Count > 0)
+                        {
+                            // Performance optimized: only regenerate doors list if count changed
+                            if (doorsSet.Count != _lastDoorCount)
+                            {
+                                Doors = doorsSet.ToList();
+                                _lastDoorCount = doorsSet.Count;
+                            }
+
+                            foreach (var door in Doors)
+                            {
+                                // Apply proximity-based dimming to reduce clutter near players
+                                float opacity = CalculateEntityOpacityNearPlayers(door.Position, allPlayers, localPlayer, map, mapParams);
+                                if (opacity < 1.0f)
+                                {
+                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                    door.Draw(canvas, mapParams, localPlayer);
+                                    canvas.Restore();
+                                }
+                                else
+                                {
+                                    door.Draw(canvas, mapParams, localPlayer);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Doors = null;
+                            _lastDoorCount = -1;
+                        }
+                    }
+
+                    if (!battleMode && Config.QuestHelper.Enabled && QuestManager.Settings.Enabled && !localPlayer.IsScav)
+                    {
+                        var questLocations = Memory.QuestManager?.LocationConditions;
+                        if (questLocations is not null)
+                            foreach (var loc in questLocations)
+                            {
+                                if (loc.Outline is not null && !Config.QuestHelper.KillZones)
+                                    continue;
+
+                                loc.Draw(canvas, mapParams, localPlayer);
+                            }
+                    }
+
+                    // === LAYER 2: LOOT & CONTAINERS (Z=200-299) ===
 
                     if (!battleMode && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                     {
@@ -768,24 +837,32 @@ namespace eft_dma_radar
                         }
                     }
 
-                    if (MineEntitySettings.Enabled && GameData.Mines.TryGetValue(mapID, out var mines))
+                    if (!battleMode && Config.QuestHelper.Enabled && LootItem.QuestItemSettings.Enabled && !localPlayer.IsScav)
                     {
-                        foreach (ref var mine in mines.Span)
+                        var questItems = Loot?.Where(x => x is QuestItem);
+                        if (questItems is not null)
+                            foreach (var item in questItems)
+                                item.Draw(canvas, mapParams, localPlayer);
+                    }
+
+                    // === LAYER 3: PLAYERS & AI (Z=300-399) ===
+
+                    if (Config.ConnectGroups)
+                    {
+                        DrawGroupConnections(canvas, allPlayers, map, mapParams);
+                    }
+
+                    // Performance optimized: use cached ordered players list
+                    var ordered = GetOrderedPlayers(allPlayers, localPlayer);
+                    if (ordered is not null)
+                    {
+                        foreach (var player in ordered)
                         {
-                            var dist = Vector3.Distance(localPlayer.Position, mine);
-                            if (dist > MineEntitySettings.RenderDistance)
+                            // Viewport culling: skip players that are off-screen
+                            if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
                                 continue;
 
-                            var mineZoomedPos = mine.ToMapPos(map.Config).ToZoomedPos(mapParams);
-
-                            var length = 3.5f * MainWindow.UIScale;
-
-                            canvas.DrawLine(new SKPoint(mineZoomedPos.X - length, mineZoomedPos.Y + length),
-                                           new SKPoint(mineZoomedPos.X + length, mineZoomedPos.Y - length),
-                                           SKPaints.PaintExplosives);
-                            canvas.DrawLine(new SKPoint(mineZoomedPos.X - length, mineZoomedPos.Y - length),
-                                           new SKPoint(mineZoomedPos.X + length, mineZoomedPos.Y + length),
-                                           SKPaints.PaintExplosives);
+                            player.Draw(canvas, mapParams, localPlayer);
                         }
                     }
 
@@ -802,6 +879,8 @@ namespace eft_dma_radar
                             }
                         }
                     }
+
+                    // === LAYER 4: CRITICAL OVERLAYS (Z=400+) ===
 
                     if (!battleMode && (Exfil.Settings.Enabled ||
                         TransitPoint.Settings.Enabled))
@@ -826,83 +905,6 @@ namespace eft_dma_radar
                                 {
                                     exit.Draw(canvas, mapParams, localPlayer);
                                 }
-                            }
-                        }
-                    }
-
-                    if (!battleMode && Switch.Settings.Enabled)
-                    {
-                        foreach (var swtch in Switches)
-                        {
-                            // Apply proximity-based dimming to reduce clutter near players
-                            float opacity = CalculateEntityOpacityNearPlayers(swtch.Position, allPlayers, localPlayer, map, mapParams);
-                            if (opacity < 1.0f)
-                            {
-                                canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                swtch.Draw(canvas, mapParams, localPlayer);
-                                canvas.Restore();
-                            }
-                            else
-                            {
-                                swtch.Draw(canvas, mapParams, localPlayer);
-                            }
-                        }
-                    }
-
-                    if (!battleMode && Door.Settings.Enabled)
-                    {
-                        var doorsSet = Memory.Game?.Interactables._Doors;
-                        if (doorsSet is not null && doorsSet.Count > 0)
-                        {
-                            // Performance optimized: only regenerate doors list if count changed
-                            if (doorsSet.Count != _lastDoorCount)
-                            {
-                                Doors = doorsSet.ToList();
-                                _lastDoorCount = doorsSet.Count;
-                            }
-
-                            foreach (var door in Doors)
-                            {
-                                // Apply proximity-based dimming to reduce clutter near players
-                                float opacity = CalculateEntityOpacityNearPlayers(door.Position, allPlayers, localPlayer, map, mapParams);
-                                if (opacity < 1.0f)
-                                {
-                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                    door.Draw(canvas, mapParams, localPlayer);
-                                    canvas.Restore();
-                                }
-                                else
-                                {
-                                    door.Draw(canvas, mapParams, localPlayer);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Doors = null;
-                            _lastDoorCount = -1;
-                        }
-                    }
-
-                    // Performance optimized: use helper method
-                    if (Config.PlayersOnTop && Config.ConnectGroups)
-                    {
-                        DrawGroupConnections(canvas, allPlayers, map, mapParams);
-                    }
-
-                    if (Config.PlayersOnTop)
-                    {
-                        // Performance optimized: use cached ordered players list
-                        var ordered = GetOrderedPlayers(allPlayers, localPlayer);
-                        if (ordered is not null)
-                        {
-                            foreach (var player in ordered)
-                            {
-                                // Viewport culling: skip players that are off-screen
-                                if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
-                                    continue;
-
-                                player.Draw(canvas, mapParams, localPlayer);
                             }
                         }
                     }
