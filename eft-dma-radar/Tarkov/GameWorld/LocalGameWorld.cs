@@ -108,7 +108,7 @@ namespace eft_dma_radar.Tarkov.GameWorld
             _t2 = new Thread(() => { MiscWorker(ct); })
             {
                 IsBackground = true,
-                Priority = ThreadPriority.BelowNormal
+                Priority = ThreadPriority.Normal // OPTIMIZED: Raised from BelowNormal for more consistent loot processing
             };
             _t3 = new Thread(() => { GrenadesWorker(ct); })
             {
