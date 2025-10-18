@@ -54,10 +54,10 @@
                         </hc:SimpleStackPanel>
                     </Border>
 
-                    <!--Debug button-->
-                    <Button x:Name="btnDebug" Visibility="Collapsed"
-                            Style="{StaticResource ButtonIcon}" 
-                            ToolTip="Debug/test functionality button"
+                    <!--Benchmark button-->
+                    <Button x:Name="btnDebug" Visibility="Visible"
+                            Style="{StaticResource ButtonIcon}"
+                            ToolTip="Run Automated Performance Benchmark (Tests all LOD levels)"
                             Background="Transparent"
                             BorderThickness="0"
                             Width="32" Height="32"
