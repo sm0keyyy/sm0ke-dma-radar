@@ -431,7 +431,7 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Text="Monitor" Style="{StaticResource LabelText}" 
+                                        <TextBlock Text="Fuser Monitor" Style="{StaticResource LabelText}" 
                                                    VerticalAlignment="Center" Grid.Column="0"/>
 
                                         <Button x:Name="btnRefreshMonitors" Tag="RefreshMonitors" 
