@@ -393,6 +393,7 @@ namespace eft_dma_radar.Tarkov.GameWorld
         /// </summary>
         private void RealtimeLoop()
         {
+            using var _ = PerformanceProfiler.Instance.BeginSection("T1 Realtime Loop");
             try
             {
                 var players = _rgtPlayers.Where(x => x.IsActive && x.IsAlive);
@@ -462,35 +463,58 @@ namespace eft_dma_radar.Tarkov.GameWorld
         /// </summary>
         private void UpdateMisc()
         {
-            ValidatePlayerTransforms(); // Check for transform anomalies
-            // Refresh exfils
-            _exfilManager.Refresh();
-            // Refresh Loot
-            _lootManager.Refresh();
+            using var _ = PerformanceProfiler.Instance.BeginSection("T2 Misc Loop");
+
+            using (PerformanceProfiler.Instance.BeginSection("  T2 ValidateTransforms"))
+            {
+                ValidatePlayerTransforms(); // Check for transform anomalies
+            }
+
+            using (PerformanceProfiler.Instance.BeginSection("  T2 Exfils"))
+            {
+                _exfilManager.Refresh();
+            }
+
+            using (PerformanceProfiler.Instance.BeginSection("  T2 Loot"))
+            {
+                _lootManager.Refresh();
+            }
+
             if (Config.LootWishlist)
             {
                 try
                 {
-                    Memory.LocalPlayer?.RefreshWishlist();
+                    using (PerformanceProfiler.Instance.BeginSection("  T2 Wishlist"))
+                    {
+                        Memory.LocalPlayer?.RefreshWishlist();
+                    }
                 }
                 catch (Exception ex)
                 {
                     LoneLogging.WriteLine($"[Wishlist] ERROR Refreshing: {ex}");
                 }
             }
-            RefreshGear(); // Update gear periodically
+
+            using (PerformanceProfiler.Instance.BeginSection("  T2 Gear"))
+            {
+                RefreshGear(); // Update gear periodically
+            }
+
             if (Config.QuestHelper.Enabled)
                 try
                 {
-                    if (QuestManager is null)
+                    using (PerformanceProfiler.Instance.BeginSection("  T2 Quests"))
                     {
-                        var localPlayer = LocalPlayer;
-                        if (localPlayer is not null)
-                            QuestManager = new QuestManager(localPlayer.Profile);
-                    }
-                    else
-                    {
-                        QuestManager.Refresh();
+                        if (QuestManager is null)
+                        {
+                            var localPlayer = LocalPlayer;
+                            if (localPlayer is not null)
+                                QuestManager = new QuestManager(localPlayer.Profile);
+                        }
+                        else
+                        {
+                            QuestManager.Refresh();
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -661,6 +685,7 @@ namespace eft_dma_radar.Tarkov.GameWorld
         /// </summary>
         private void RefreshFast()
         {
+            using var _ = PerformanceProfiler.Instance.BeginSection("T4 Fast Loop");
             try
             {
                 var players = _rgtPlayers
@@ -668,26 +693,32 @@ namespace eft_dma_radar.Tarkov.GameWorld
 
                 if (players is not null && players.Any())
                 {
-                    // Use batched scatter read for all players (5-10x faster than individual reads)
-                    using var scatterMap = ScatterReadMap.Get();
-                    var round1 = scatterMap.AddRound();
-                    var round2 = scatterMap.AddRound();
-                    var round3 = scatterMap.AddRound();
-                    var round4 = scatterMap.AddRound();
-
-                    int i = 0;
-                    foreach (var player in players)
+                    using (PerformanceProfiler.Instance.BeginSection("  T4 Hands (Batched)"))
                     {
-                        player.OnFastLoop(round1[i], round2[i], round3[i], round4[i]);
-                        i++;
+                        // Use batched scatter read for all players (5-10x faster than individual reads)
+                        using var scatterMap = ScatterReadMap.Get();
+                        var round1 = scatterMap.AddRound();
+                        var round2 = scatterMap.AddRound();
+                        var round3 = scatterMap.AddRound();
+                        var round4 = scatterMap.AddRound();
+
+                        int i = 0;
+                        foreach (var player in players)
+                        {
+                            player.OnFastLoop(round1[i], round2[i], round3[i], round4[i]);
+                            i++;
+                        }
+
+                        scatterMap.Execute(); // Execute all reads in batch
                     }
 
-                    scatterMap.Execute(); // Execute all reads in batch
-
-                    // Update local player firearm (non-DMA logic)
-                    var localPlayer = players.FirstOrDefault(x => x is LocalPlayer) as LocalPlayer;
-                    if (localPlayer is not null)
-                        localPlayer.Firearm.Update();
+                    using (PerformanceProfiler.Instance.BeginSection("  T4 Firearm"))
+                    {
+                        // Update local player firearm (non-DMA logic)
+                        var localPlayer = players.FirstOrDefault(x => x is LocalPlayer) as LocalPlayer;
+                        if (localPlayer is not null)
+                            localPlayer.Firearm.Update();
+                    }
                 }
             }
             catch

@@ -3716,6 +3716,16 @@ namespace eft_dma_radar
                 LootFilterControl.HandleDeleteKey();
                 e.Handled = true;
             }
+            if (e.Key == Key.F11)
+            {
+                _showProfiler = !_showProfiler;
+                PerformanceProfiler.Instance.Enabled = _showProfiler;
+                if (_showProfiler)
+                {
+                    PerformanceProfiler.Instance.Reset();
+                }
+                e.Handled = true;
+            }
         }
         #endregion
         private class PanelInfo
