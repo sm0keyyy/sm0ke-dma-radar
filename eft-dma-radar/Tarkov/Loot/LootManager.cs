@@ -113,6 +113,11 @@ namespace eft_dma_radar.Tarkov.Loot
             var containers = new List<StaticLootContainer>(64);
             var deadPlayers = Memory.Players?
                 .Where(x => x.Corpse is not null)?.ToList();
+
+            // Debug: Log initial loot list count
+            var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_debug.txt");
+            File.AppendAllText(debugPath, $"[{DateTime.Now:HH:mm:ss}] >>> GetLoot() called - LootList count: {lootList.Count}\n");
+
             using var map = ScatterReadMap.Get();
             var round1 = map.AddRound();
             var round2 = map.AddRound();
@@ -122,6 +127,9 @@ namespace eft_dma_radar.Tarkov.Loot
             var round6 = map.AddRound(); // Item templates and metadata
             var round7 = map.AddRound(); // BSG IDs and flags
             var round8 = map.AddRound(); // BSG ID strings
+
+            int looseCount = 0, containerCount = 0, corpseCount = 0;
+
             for (int ix = 0; ix < lootList.Count; ix++)
             {
                 var i = ix;
@@ -171,6 +179,11 @@ namespace eft_dma_radar.Tarkov.Loot
                                                 var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
                                                 var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
                                                 var skipScript = objectName.Contains("script", StringComparison.OrdinalIgnoreCase);
+
+                                                // Debug: Track types
+                                                if (isLooseLoot) System.Threading.Interlocked.Increment(ref looseCount);
+                                                if (isContainer) System.Threading.Interlocked.Increment(ref containerCount);
+                                                if (isCorpse) System.Threading.Interlocked.Increment(ref corpseCount);
 
                                                 // Round 5: Read base item/container pointers
                                                 if (!skipScript && (isLooseLoot || isContainer))
@@ -336,9 +349,9 @@ namespace eft_dma_radar.Tarkov.Loot
             map.Execute(); // execute scatter read
 
             // Debug: Save loot counts to desktop
-            var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_debug.txt");
-            var debugInfo = $"[{DateTime.Now:HH:mm:ss}] Total loot items: {loot.Count}, Containers: {containers.Count}\n";
-            debugInfo += $"  Loose loot breakdown - QuestItems: {loot.Count(x => x is QuestItem)}, Regular: {loot.Count(x => x is LootItem && x is not QuestItem && x is not LootCorpse)}, Corpses: {loot.Count(x => x is LootCorpse)}\n";
+            var debugInfo = $"[{DateTime.Now:HH:mm:ss}] DETECTED: Loose={looseCount}, Containers={containerCount}, Corpses={corpseCount}\n";
+            debugInfo += $"[{DateTime.Now:HH:mm:ss}] RESULTS: Total loot items: {loot.Count}, Containers: {containers.Count}\n";
+            debugInfo += $"  Breakdown - QuestItems: {loot.Count(x => x is QuestItem)}, Regular: {loot.Count(x => x is LootItem && x is not QuestItem && x is not LootCorpse)}, Corpses: {loot.Count(x => x is LootCorpse)}\n\n";
             File.AppendAllText(debugPath, debugInfo);
 
             this.UnfilteredLoot = loot;
