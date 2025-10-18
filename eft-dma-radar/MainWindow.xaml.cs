@@ -98,6 +98,7 @@ namespace eft_dma_radar
         private readonly object _renderLock = new object();
         private volatile bool _isRendering = false;
         private volatile bool _uiInteractionActive = false;
+        public static bool _showProfiler = false; // Toggle with F11 or Settings checkbox
         private DispatcherTimer _uiActivityTimer;
 
         // Performance optimization: Debounced config save to reduce I/O operations
@@ -520,6 +521,9 @@ namespace eft_dma_radar
         /// </summary>
         private void SkCanvas_PaintSurface(object sender, SKPaintGLSurfaceEventArgs e)
         {
+            using var _ = PerformanceProfiler.Instance.BeginSection("Total Frame");
+            PerformanceProfiler.Instance.BeginFrame();
+
             var isStarting = Starting;
             var isReady = Ready; // cache bool
             var inRaid = InRaid; // cache bool
@@ -619,7 +623,10 @@ namespace eft_dma_radar
                     canvas.RotateDegrees(_rotationDegrees, centerX, centerY);
 
                     // Draw Map
-                    map.Draw(canvas, localPlayer.Position.Y, mapParams.Bounds, mapCanvasBounds);
+                    using (PerformanceProfiler.Instance.BeginSection("Map Drawing"))
+                    {
+                        map.Draw(canvas, localPlayer.Position.Y, mapParams.Bounds, mapCanvasBounds);
+                    }
 
                     // Cache canvas dimensions for viewport culling (used multiple times)
                     var canvasWidth = (float)skCanvas.ActualWidth;
@@ -652,81 +659,98 @@ namespace eft_dma_radar
                     var loot = Loot;
                     var explosives = Explosives;
 
-                    // Rebuild Players Spatial Index
-                    if (allPlayers is not null)
+                    using (PerformanceProfiler.Instance.BeginSection("Spatial Index Management"))
                     {
-                        int playerCount = allPlayers.Count;
-                        long framesSinceLastRebuild = _currentFrame - _lastPlayerRebuildFrame;
 
-                        // Rebuild if:
-                        // 1. Map changed (immediate)
-                        // 2. Count changed (immediate - catches most add/remove)
-                        // 3. Every 30 frames (~0.5 sec - catches entity swaps where count stays same)
-                        if (mapChanged || playerCount != _lastPlayerCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                        // Rebuild Players Spatial Index
+                        if (allPlayers is not null)
                         {
-                            _playerSpatialIndex.Rebuild(allPlayers, map.Config);
-                            _lastPlayerRebuildFrame = _currentFrame;
-                            _lastPlayerCount = playerCount;
+                            int playerCount = allPlayers.Count;
+                            long framesSinceLastRebuild = _currentFrame - _lastPlayerRebuildFrame;
+
+                            // Rebuild if:
+                            // 1. Map changed (immediate)
+                            // 2. Count changed (immediate - catches most add/remove)
+                            // 3. Every 30 frames (~0.5 sec - catches entity swaps where count stays same)
+                            if (mapChanged || playerCount != _lastPlayerCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                            {
+                                using (PerformanceProfiler.Instance.BeginSection("  Rebuild Players Index"))
+                                {
+                                    _playerSpatialIndex.Rebuild(allPlayers, map.Config);
+                                    _lastPlayerRebuildFrame = _currentFrame;
+                                    _lastPlayerCount = playerCount;
+                                }
+                            }
+
+                            TotalPlayerCount = playerCount; // Total before culling
                         }
 
-                        TotalPlayerCount = playerCount; // Total before culling
-                    }
-
-                    // Rebuild Containers Spatial Index
-                    if (!battleMode && containers is not null && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
-                    {
-                        int containerCount = containers is ICollection<StaticLootContainer> cColl ? cColl.Count : containers.AsValueEnumerable().Count();
-                        long framesSinceLastRebuild = _currentFrame - _lastContainerRebuildFrame;
-
-                        // Rebuild on map change, count change, or every 30 frames
-                        if (mapChanged || containerCount != _lastContainerCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                        // Rebuild Containers Spatial Index
+                        if (!battleMode && containers is not null && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                         {
-                            _containerSpatialIndex.Rebuild(containers, map.Config);
-                            _lastContainerRebuildFrame = _currentFrame;
-                            _lastContainerCount = containerCount;
+                            int containerCount = containers is ICollection<StaticLootContainer> cColl ? cColl.Count : containers.AsValueEnumerable().Count();
+                            long framesSinceLastRebuild = _currentFrame - _lastContainerRebuildFrame;
+
+                            // Rebuild on map change, count change, or every 30 frames
+                            if (mapChanged || containerCount != _lastContainerCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                            {
+                                using (PerformanceProfiler.Instance.BeginSection("  Rebuild Containers Index"))
+                                {
+                                    _containerSpatialIndex.Rebuild(containers, map.Config);
+                                    _lastContainerRebuildFrame = _currentFrame;
+                                    _lastContainerCount = containerCount;
+                                }
+                            }
+
+                            TotalContainerCount = containerCount; // Total before culling
                         }
 
-                        TotalContainerCount = containerCount; // Total before culling
-                    }
-
-                    // Rebuild Loot Spatial Index
-                    if (!battleMode && loot is not null && Config.ProcessLoot)
-                    {
-                        int lootCount = loot is ICollection<LootItem> lColl ? lColl.Count : loot.AsValueEnumerable().Count();
-                        long framesSinceLastRebuild = _currentFrame - _lastLootRebuildFrame;
-
-                        // Rebuild on map change, count change, or every 30 frames
-                        // Critical: catches when loot is picked up/spawned with unchanged count
-                        if (mapChanged || lootCount != _lastLootCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                        // Rebuild Loot Spatial Index
+                        if (!battleMode && loot is not null && Config.ProcessLoot)
                         {
-                            _lootSpatialIndex.Rebuild(loot, map.Config);
-                            _lastLootRebuildFrame = _currentFrame;
-                            _lastLootCount = lootCount;
+                            int lootCount = loot is ICollection<LootItem> lColl ? lColl.Count : loot.AsValueEnumerable().Count();
+                            long framesSinceLastRebuild = _currentFrame - _lastLootRebuildFrame;
+
+                            // Rebuild on map change, count change, or every 30 frames
+                            // Critical: catches when loot is picked up/spawned with unchanged count
+                            if (mapChanged || lootCount != _lastLootCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                            {
+                                using (PerformanceProfiler.Instance.BeginSection("  Rebuild Loot Index"))
+                                {
+                                    _lootSpatialIndex.Rebuild(loot, map.Config);
+                                    _lastLootRebuildFrame = _currentFrame;
+                                    _lastLootCount = lootCount;
+                                }
+                            }
+
+                            TotalLootCount = lootCount; // Total before culling
                         }
 
-                        TotalLootCount = lootCount; // Total before culling
-                    }
-
-                    // Rebuild Explosives Spatial Index
-                    if (explosives is not null && (Tripwire.Settings.Enabled || Grenade.Settings.Enabled || MortarProjectile.Settings.Enabled))
-                    {
-                        int explosivesCount = explosives is ICollection<IExplosiveItem> eColl ? eColl.Count : explosives.AsValueEnumerable().Count();
-                        long framesSinceLastRebuild = _currentFrame - _lastExplosivesRebuildFrame;
-
-                        // Rebuild on map change, count change, or every 30 frames
-                        if (mapChanged || explosivesCount != _lastExplosivesCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                        // Rebuild Explosives Spatial Index
+                        if (explosives is not null && (Tripwire.Settings.Enabled || Grenade.Settings.Enabled || MortarProjectile.Settings.Enabled))
                         {
-                            _explosiveSpatialIndex.Rebuild(explosives, map.Config);
-                            _lastExplosivesRebuildFrame = _currentFrame;
-                            _lastExplosivesCount = explosivesCount;
-                        }
+                            int explosivesCount = explosives is ICollection<IExplosiveItem> eColl ? eColl.Count : explosives.AsValueEnumerable().Count();
+                            long framesSinceLastRebuild = _currentFrame - _lastExplosivesRebuildFrame;
 
-                        TotalExplosivesCount = explosivesCount; // Total before culling
+                            // Rebuild on map change, count change, or every 30 frames
+                            if (mapChanged || explosivesCount != _lastExplosivesCount || framesSinceLastRebuild >= SPATIAL_INDEX_REFRESH_INTERVAL)
+                            {
+                                using (PerformanceProfiler.Instance.BeginSection("  Rebuild Explosives Index"))
+                                {
+                                    _explosiveSpatialIndex.Rebuild(explosives, map.Config);
+                                    _lastExplosivesRebuildFrame = _currentFrame;
+                                    _lastExplosivesCount = explosivesCount;
+                                }
+                            }
+
+                            TotalExplosivesCount = explosivesCount; // Total before culling
+                        }
                     }
 
                     // === LAYER 1: BACKGROUND ENTITIES (Z=100-199) ===
-
-                    if (MineEntitySettings.Enabled && GameData.Mines.TryGetValue(mapID, out var mines))
+                    using (PerformanceProfiler.Instance.BeginSection("Draw Background Entities"))
+                    {
+                        if (MineEntitySettings.Enabled && GameData.Mines.TryGetValue(mapID, out var mines))
                     {
                         foreach (ref var mine in mines.Span)
                         {
@@ -821,10 +845,12 @@ namespace eft_dma_radar
                                 loc.Draw(canvas, mapParams, localPlayer);
                             }
                     }
+                    } // End Draw Background Entities
 
                     // === LAYER 2: LOOT & CONTAINERS (Z=200-299) ===
-
-                    if (!battleMode && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
+                    using (PerformanceProfiler.Instance.BeginSection("Draw Loot & Containers"))
+                    {
+                        if (!battleMode && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                     {
                         if (containers is not null)
                         {
@@ -953,10 +979,12 @@ namespace eft_dma_radar
                             foreach (var item in questItems)
                                 item.Draw(canvas, mapParams, localPlayer);
                     }
+                    } // End Draw Loot & Containers
 
                     // === LAYER 3: PLAYERS & AI (Z=300-399) ===
-
-                    if (Config.ConnectGroups)
+                    using (PerformanceProfiler.Instance.BeginSection("Draw Players & AI"))
+                    {
+                        if (Config.ConnectGroups)
                     {
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
@@ -1001,6 +1029,7 @@ namespace eft_dma_radar
                             }
                         }
                     }
+                    } // End Draw Players & AI
 
                     // === LAYER 4: CRITICAL OVERLAYS (Z=400+) ===
 
@@ -1103,6 +1132,12 @@ namespace eft_dma_radar
                     _framesSinceLastGC = 0;
                 }
 
+                // Draw performance profiler overlay if enabled (toggle with F11)
+                if (_showProfiler)
+                {
+                    DrawProfilerOverlay(canvas);
+                }
+
                 canvas.Flush(); // commit frame to GPU
             }
             catch (Exception ex) // Log rendering errors
@@ -1110,6 +1145,70 @@ namespace eft_dma_radar
                 LoneLogging.WriteLine($"CRITICAL RENDER ERROR: {ex}");
             }
         }
+        /// <summary>
+        /// Draws the performance profiler overlay showing frame timings and bottlenecks.
+        /// </summary>
+        private void DrawProfilerOverlay(SKCanvas canvas)
+        {
+            var stats = PerformanceProfiler.Instance.GetStats();
+            if (stats.TotalFrames == 0) return;
+
+            var x = 10f;
+            var y = 30f;
+            var lineHeight = 18f;
+
+            using var backgroundPaint = new SKPaint
+            {
+                Color = new SKColor(0, 0, 0, 200),
+                Style = SKPaintStyle.Fill
+            };
+
+            using var textPaint = new SKPaint
+            {
+                Color = SKColors.White,
+                TextSize = 14,
+                IsAntialias = true,
+                Typeface = SKTypeface.FromFamilyName("Consolas", SKFontStyle.Normal)
+            };
+
+            // Calculate overlay height
+            var overlayHeight = (stats.Sections.Count + 3) * lineHeight + 20f;
+            canvas.DrawRect(5, 10, 400, overlayHeight, backgroundPaint);
+
+            // Header
+            canvas.DrawText($"PERFORMANCE PROFILER", x, y, textPaint);
+            y += lineHeight * 1.5f;
+
+            // Frame time
+            var frameColor = stats.LastFrameMs > 16.66 ? SKColors.Red :
+                           stats.LastFrameMs > 13.33 ? SKColors.Yellow : SKColors.LightGreen;
+            textPaint.Color = frameColor;
+            canvas.DrawText($"Frame: {stats.LastFrameMs:F2}ms ({(1000.0 / stats.LastFrameMs):F0} FPS)", x, y, textPaint);
+            y += lineHeight;
+
+            textPaint.Color = SKColors.White;
+            canvas.DrawText($"Frames: {stats.TotalFrames}", x, y, textPaint);
+            y += lineHeight * 1.5f;
+
+            // Section timings (top 10)
+            textPaint.Color = SKColors.Cyan;
+            canvas.DrawText("Section Timings (Recent Avg):", x, y, textPaint);
+            y += lineHeight;
+
+            textPaint.Color = SKColors.White;
+            foreach (var section in stats.Sections.Take(10))
+            {
+                var percentage = (section.RecentAverageMs / stats.LastFrameMs) * 100;
+                var sectionColor = section.RecentAverageMs > 5 ? SKColors.Orange :
+                                 section.RecentAverageMs > 2 ? SKColors.Yellow : SKColors.LightGray;
+                textPaint.Color = sectionColor;
+
+                var indent = section.Name.StartsWith("  ") ? "    " : "";
+                canvas.DrawText($"{indent}{section.Name}: {section.RecentAverageMs:F2}ms ({percentage:F0}%)", x, y, textPaint);
+                y += lineHeight;
+            }
+        }
+
         private static int DrawPriority(PlayerType t) => t switch
         {
             PlayerType.SpecialPlayer => 7,

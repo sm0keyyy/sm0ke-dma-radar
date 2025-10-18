@@ -606,6 +606,8 @@ namespace eft_dma_radar.UI.Pages
             // General Options
             chkMapSetup.Checked += GeneralCheckbox_Checked;
             chkMapSetup.Unchecked += GeneralCheckbox_Checked;
+            chkShowProfiler.Checked += GeneralCheckbox_Checked;
+            chkShowProfiler.Unchecked += GeneralCheckbox_Checked;
             ccbWidgets.SelectionChanged += widgetsCheckComboBox_SelectionChanged;
             ccbGeneralOptions.SelectionChanged += generalOptionsCheckComboBox_SelectionChanged;
 
@@ -1558,6 +1560,19 @@ namespace eft_dma_radar.UI.Pages
                 {
                     case "ShowMapSetup":
                         ToggleMapSetup();
+                        break;
+                    case "ShowProfiler":
+                        MainWindow._showProfiler = value;
+                        PerformanceProfiler.Instance.Enabled = value;
+                        if (value)
+                        {
+                            PerformanceProfiler.Instance.Reset();
+                            LoneLogging.WriteLine("Performance profiler enabled");
+                        }
+                        else
+                        {
+                            LoneLogging.WriteLine("Performance profiler disabled");
+                        }
                         break;
                     case "PlayerDimmingEnabled":
                         Config.PlayerDimmingEnabled = value;

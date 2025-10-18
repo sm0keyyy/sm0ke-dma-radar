@@ -79,6 +79,8 @@ namespace eft_dma_shared.Common.Maps
 
         public void Draw(SKCanvas canvas, float playerHeight, SKRect mapBounds, SKRect windowBounds)
         {
+            using var _ = PerformanceProfiler.Instance.BeginSection("  Map Layer Rendering");
+
             // Check if we need to recalculate visible layers
             if (float.IsNaN(_cachedPlayerHeight) ||
                 Math.Abs(playerHeight - _cachedPlayerHeight) > HEIGHT_CHANGE_THRESHOLD)
