@@ -154,9 +154,28 @@ namespace eft_dma_radar
         private int _lootFilterCacheFrame = -1;
 
         // Performance optimization: Spatial indexing for viewport culling
-        private SpatialIndex<IMouseoverEntity> _entitySpatialIndex;
-        private int _spatialIndexVersion = -1;
+        // Separate spatial indexes for each entity type to handle different data sources and update frequencies
+        private SpatialIndex<Player> _playerSpatialIndex;
+        private SpatialIndex<LootItem> _lootSpatialIndex;
+        private SpatialIndex<StaticLootContainer> _containerSpatialIndex;
+        private SpatialIndex<IExplosiveItem> _explosiveSpatialIndex;
+
+        // Track when spatial indexes need rebuilding
+        private int _lastPlayerCount = -1;
+        private int _lastLootCount = -1;
+        private int _lastContainerCount = -1;
+        private int _lastExplosivesCount = -1;
         private string _lastSpatialIndexMapID = null;
+
+        // Performance metrics for spatial culling (accessible by DebugInfoWidget)
+        public int TotalPlayerCount { get; private set; } = 0;
+        public int VisiblePlayerCount { get; private set; } = 0;
+        public int TotalLootCount { get; private set; } = 0;
+        public int VisibleLootCount { get; private set; } = 0;
+        public int TotalContainerCount { get; private set; } = 0;
+        public int VisibleContainerCount { get; private set; } = 0;
+        public int TotalExplosivesCount { get; private set; } = 0;
+        public int VisibleExplosivesCount { get; private set; } = 0;
 
         // Performance optimization: Draw call batching
         private readonly DrawBatcher _drawBatcher = new();
@@ -441,6 +460,12 @@ namespace eft_dma_radar
             EspColorOptions.LoadColors(Config);
             CameraManagerBase.UpdateViewportRes();
 
+            // Initialize spatial indexes for efficient viewport culling
+            _playerSpatialIndex = new SpatialIndex<Player>();
+            _lootSpatialIndex = new SpatialIndex<LootItem>();
+            _containerSpatialIndex = new SpatialIndex<StaticLootContainer>();
+            _explosiveSpatialIndex = new SpatialIndex<IExplosiveItem>();
+
             var interval = TimeSpan.FromMilliseconds(1000d / Config.RadarTargetFPS);
             _renderTimer = new(interval);
 
@@ -588,11 +613,75 @@ namespace eft_dma_radar
                     // Update 'important' / quest item asterisk
                     SKPaints.UpdatePulsingAsteriskColor();
 
+                    // === Rebuild Spatial Indexes for Efficient Viewport Culling ===
+                    // Rebuild spatial indexes when entity counts change or map switches
+                    // This allows O(log n) viewport queries instead of O(n) iteration
+
+                    // Check if map changed - force full rebuild
+                    bool mapChanged = _lastSpatialIndexMapID != mapID;
+                    if (mapChanged)
+                    {
+                        _lastSpatialIndexMapID = mapID;
+                    }
+
                     // Draw other players
                     var allPlayers = AllPlayers?
                         .Where(x => !x.HasExfild);
 
                     var battleMode = Config.BattleMode;
+
+                    // Fetch all entity collections for spatial indexing
+                    var containers = Containers;
+                    var loot = Loot;
+                    var explosives = Explosives;
+
+                    // Rebuild Players Spatial Index
+                    if (allPlayers is not null)
+                    {
+                        int playerCount = allPlayers is ICollection<Player> pColl ? pColl.Count : allPlayers.Count();
+                        if (mapChanged || playerCount != _lastPlayerCount)
+                        {
+                            _playerSpatialIndex.Rebuild(allPlayers, map.Config);
+                            _lastPlayerCount = playerCount;
+                        }
+                        TotalPlayerCount = playerCount; // Total before culling
+                    }
+
+                    // Rebuild Containers Spatial Index
+                    if (!battleMode && containers is not null && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
+                    {
+                        int containerCount = containers is ICollection<StaticLootContainer> cColl ? cColl.Count : containers.Count();
+                        if (mapChanged || containerCount != _lastContainerCount)
+                        {
+                            _containerSpatialIndex.Rebuild(containers, map.Config);
+                            _lastContainerCount = containerCount;
+                        }
+                        TotalContainerCount = containerCount; // Total before culling
+                    }
+
+                    // Rebuild Loot Spatial Index
+                    if (!battleMode && loot is not null && Config.ProcessLoot)
+                    {
+                        int lootCount = loot is ICollection<LootItem> lColl ? lColl.Count : loot.Count();
+                        if (mapChanged || lootCount != _lastLootCount)
+                        {
+                            _lootSpatialIndex.Rebuild(loot, map.Config);
+                            _lastLootCount = lootCount;
+                        }
+                        TotalLootCount = lootCount; // Total before culling
+                    }
+
+                    // Rebuild Explosives Spatial Index
+                    if (explosives is not null && (Tripwire.Settings.Enabled || Grenade.Settings.Enabled || MortarProjectile.Settings.Enabled))
+                    {
+                        int explosivesCount = explosives is ICollection<IExplosiveItem> eColl ? eColl.Count : explosives.Count();
+                        if (mapChanged || explosivesCount != _lastExplosivesCount)
+                        {
+                            _explosiveSpatialIndex.Rebuild(explosives, map.Config);
+                            _lastExplosivesCount = explosivesCount;
+                        }
+                        TotalExplosivesCount = explosivesCount; // Total before culling
+                    }
 
                     // === LAYER 1: BACKGROUND ENTITIES (Z=100-199) ===
 
@@ -688,18 +777,16 @@ namespace eft_dma_radar
 
                     if (!battleMode && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                     {
-                        var containers = Containers;
                         if (containers is not null)
                         {
-                            foreach (var container in containers)
+                            // Performance optimized: Use spatial index for viewport culling instead of checking each container
+                            var visibleContainers = _containerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
+                            VisibleContainerCount = visibleContainers.Count();
+                            foreach (var container in visibleContainers)
                             {
                                 if (LootSettingsControl.ContainerIsTracked(container.ID ?? "NULL"))
                                 {
                                     if (Config.Containers.HideSearched && container.Searched)
-                                        continue;
-
-                                    // Viewport culling: skip containers that are off-screen
-                                    if (!IsWorldPosInViewport(container.Position, mapParams, canvasWidth, canvasHeight))
                                         continue;
 
                                     // Apply proximity-based dimming to reduce clutter near players
@@ -737,77 +824,38 @@ namespace eft_dma_radar
                             _lootCorpseSettingsEnabled = corpseEnabled;
                             _lootFilterCacheFrame = _currentFrame;
                         }
-                        var loot = Loot;
 
                         if (loot is not null)
                         {
-                            // Performance optimized: iterate backwards by index to avoid Reverse() allocation
-                            // IReadOnlyList allows direct indexed access without creating intermediate collections
-                            if (loot is IReadOnlyList<LootItem> lootList)
+                            // Performance optimized: Use spatial index for viewport culling
+                            // Query returns only entities within viewport bounds - massive performance gain for large loot counts
+                            var visibleLoot = _lootSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
+                            VisibleLootCount = visibleLoot.Count();
+
+                            // Render in reverse order for proper z-ordering (items should render back-to-front)
+                            foreach (var item in visibleLoot.Reverse())
                             {
-                                for (int i = lootList.Count - 1; i >= 0; i--)
+                                // Skip quest items (handled separately below)
+                                if (item is QuestItem)
+                                    continue;
+
+                                // Early-out: skip corpses if corpse rendering is disabled
+                                if (!corpseEnabled && item is LootCorpse)
+                                    continue;
+
+                                item.CheckNotify();
+
+                                // Apply proximity-based dimming to reduce clutter near players
+                                float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
+                                if (opacity < 1.0f)
                                 {
-                                    var item = lootList[i];
-
-                                    // Skip quest items (handled separately below)
-                                    if (item is QuestItem)
-                                        continue;
-
-                                    // Early-out: skip corpses if corpse rendering is disabled
-                                    if (!corpseEnabled && item is LootCorpse)
-                                        continue;
-
-                                    // Viewport culling: skip items that are off-screen
-                                    if (!IsWorldPosInViewport(item.Position, mapParams, canvasWidth, canvasHeight))
-                                        continue;
-
-                                    item.CheckNotify();
-
-                                    // Apply proximity-based dimming to reduce clutter near players
-                                    float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
-                                    if (opacity < 1.0f)
-                                    {
-                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                        item.Draw(canvas, mapParams, localPlayer);
-                                        canvas.Restore();
-                                    }
-                                    else
-                                    {
-                                        item.Draw(canvas, mapParams, localPlayer);
-                                    }
+                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                    item.Draw(canvas, mapParams, localPlayer);
+                                    canvas.Restore();
                                 }
-                            }
-                            else
-                            {
-                                // Fallback for non-list implementations
-                                foreach (var item in loot.Reverse())
+                                else
                                 {
-                                    // Skip quest items (handled separately below)
-                                    if (item is QuestItem)
-                                        continue;
-
-                                    // Early-out: skip corpses if corpse rendering is disabled
-                                    if (!corpseEnabled && item is LootCorpse)
-                                        continue;
-
-                                    // Viewport culling: skip items that are off-screen
-                                    if (!IsWorldPosInViewport(item.Position, mapParams, canvasWidth, canvasHeight))
-                                        continue;
-
-                                    item.CheckNotify();
-
-                                    // Apply proximity-based dimming to reduce clutter near players
-                                    float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
-                                    if (opacity < 1.0f)
-                                    {
-                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                        item.Draw(canvas, mapParams, localPlayer);
-                                        canvas.Restore();
-                                    }
-                                    else
-                                    {
-                                        item.Draw(canvas, mapParams, localPlayer);
-                                    }
+                                    item.Draw(canvas, mapParams, localPlayer);
                                 }
                             }
                         }
@@ -852,14 +900,21 @@ namespace eft_dma_radar
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
 
-                    // Performance optimized: use cached ordered players list
+                    // Performance optimized: use cached ordered players list + spatial index for viewport culling
                     var ordered = GetOrderedPlayers(allPlayers, localPlayer);
                     if (ordered is not null)
                     {
+                        // Use spatial index to query only players within viewport bounds
+                        var visiblePlayers = _playerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
+                        VisiblePlayerCount = visiblePlayers.Count();
+
+                        // Convert to HashSet for O(1) lookup to maintain draw order from GetOrderedPlayers
+                        var visiblePlayerSet = new HashSet<Player>(visiblePlayers);
+
                         foreach (var player in ordered)
                         {
-                            // Viewport culling: skip players that are off-screen
-                            if (!IsWorldPosInViewport(player.Position, mapParams, canvasWidth, canvasHeight))
+                            // Only draw if player is in the visible set (viewport culled)
+                            if (!visiblePlayerSet.Contains(player))
                                 continue;
 
                             player.Draw(canvas, mapParams, localPlayer);
@@ -870,10 +925,12 @@ namespace eft_dma_radar
                         Grenade.Settings.Enabled ||
                         MortarProjectile.Settings.Enabled)
                     {
-                        var explosives = Explosives;
                         if (explosives is not null)
                         {
-                            foreach (var explosive in explosives)
+                            // Performance optimized: Use spatial index for viewport culling
+                            var visibleExplosives = _explosiveSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
+                            VisibleExplosivesCount = visibleExplosives.Count();
+                            foreach (var explosive in visibleExplosives)
                             {
                                 explosive.Draw(canvas, mapParams, localPlayer);
                             }
