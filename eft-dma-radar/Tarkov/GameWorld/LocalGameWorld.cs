@@ -475,9 +475,15 @@ namespace eft_dma_radar.Tarkov.GameWorld
                 _exfilManager.Refresh();
             }
 
-            using (PerformanceProfiler.Instance.BeginSection("  T2 Loot"))
+            // Throttle loot refresh to every 500ms instead of every 50ms
+            // Loot on the ground doesn't change rapidly, so this dramatically reduces DMA reads
+            if (++_lootRefreshCounter >= LOOT_REFRESH_INTERVAL)
             {
-                _lootManager.Refresh();
+                _lootRefreshCounter = 0;
+                using (PerformanceProfiler.Instance.BeginSection("  T2 Loot"))
+                {
+                    _lootManager.Refresh();
+                }
             }
 
             if (Config.LootWishlist)
@@ -522,6 +528,14 @@ namespace eft_dma_radar.Tarkov.GameWorld
                     LoneLogging.WriteLine($"[QuestManager] CRITICAL ERROR: {ex}");
                 }
         }
+
+        /// <summary>
+        /// Refresh Loot Manager
+        /// Throttled to every 500ms (10 T2 cycles) since loot doesn't spawn/despawn rapidly.
+        /// This prevents massive performance hit from processing hundreds of loot items every 50ms.
+        /// </summary>
+        private int _lootRefreshCounter = 0;
+        private const int LOOT_REFRESH_INTERVAL = 10; // Every 500ms (10 cycles * 50ms)
 
         /// <summary>
         /// Refresh Gear Manager
