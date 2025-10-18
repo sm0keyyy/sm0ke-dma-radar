@@ -714,9 +714,13 @@ namespace eft_dma_radar
                             float opacity = CalculateEntityOpacityNearPlayers(swtch.Position, allPlayers, localPlayer, map, mapParams);
                             if (opacity < 1.0f)
                             {
-                                canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                swtch.Draw(canvas, mapParams, localPlayer);
-                                canvas.Restore();
+                                using (var pooledPaint = PooledPaint.GetFill())
+                                {
+                                    pooledPaint.Paint.Color = SKColors.White.WithAlpha((byte)(opacity * 255));
+                                    canvas.SaveLayer(pooledPaint.Paint);
+                                    swtch.Draw(canvas, mapParams, localPlayer);
+                                    canvas.Restore();
+                                }
                             }
                             else
                             {
@@ -743,9 +747,13 @@ namespace eft_dma_radar
                                 float opacity = CalculateEntityOpacityNearPlayers(door.Position, allPlayers, localPlayer, map, mapParams);
                                 if (opacity < 1.0f)
                                 {
-                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                    door.Draw(canvas, mapParams, localPlayer);
-                                    canvas.Restore();
+                                    using (var pooledPaint = PooledPaint.GetFill())
+                                    {
+                                        pooledPaint.Paint.Color = SKColors.White.WithAlpha((byte)(opacity * 255));
+                                        canvas.SaveLayer(pooledPaint.Paint);
+                                        door.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
                                 }
                                 else
                                 {
@@ -793,9 +801,13 @@ namespace eft_dma_radar
                                     float opacity = CalculateEntityOpacityNearPlayers(container.Position, allPlayers, localPlayer, map, mapParams);
                                     if (opacity < 1.0f)
                                     {
-                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                        container.Draw(canvas, mapParams, localPlayer);
-                                        canvas.Restore();
+                                        using (var pooledPaint = PooledPaint.GetFill())
+                                        {
+                                            pooledPaint.Paint.Color = SKColors.White.WithAlpha((byte)(opacity * 255));
+                                            canvas.SaveLayer(pooledPaint.Paint);
+                                            container.Draw(canvas, mapParams, localPlayer);
+                                            canvas.Restore();
+                                        }
                                     }
                                     else
                                     {
@@ -849,9 +861,13 @@ namespace eft_dma_radar
                                 float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
                                 if (opacity < 1.0f)
                                 {
-                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                    item.Draw(canvas, mapParams, localPlayer);
-                                    canvas.Restore();
+                                    using (var pooledPaint = PooledPaint.GetFill())
+                                    {
+                                        pooledPaint.Paint.Color = SKColors.White.WithAlpha((byte)(opacity * 255));
+                                        canvas.SaveLayer(pooledPaint.Paint);
+                                        item.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
                                 }
                                 else
                                 {
@@ -954,9 +970,13 @@ namespace eft_dma_radar
                                 float opacity = CalculateEntityOpacityNearPlayers(exit.Position, allPlayers, localPlayer, map, mapParams);
                                 if (opacity < 1.0f)
                                 {
-                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
-                                    exit.Draw(canvas, mapParams, localPlayer);
-                                    canvas.Restore();
+                                    using (var pooledPaint = PooledPaint.GetFill())
+                                    {
+                                        pooledPaint.Paint.Color = SKColors.White.WithAlpha((byte)(opacity * 255));
+                                        canvas.SaveLayer(pooledPaint.Paint);
+                                        exit.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
                                 }
                                 else
                                 {
