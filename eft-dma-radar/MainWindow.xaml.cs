@@ -32,6 +32,7 @@ using SkiaSharp;
 using SkiaSharp.Views.WPF;
 using System;
 using System.Linq;
+using NetFabric.Hyperlinq;
 using System.Security.Authentication.ExtendedProtection;
 using System.Timers;
 using System.Windows;
@@ -628,7 +629,9 @@ namespace eft_dma_radar
 
                     // Draw other players
                     var allPlayers = AllPlayers?
-                        .Where(x => !x.HasExfild);
+                        .AsValueEnumerable()
+                        .Where(x => !x.HasExfild)
+                        .ToList();
 
                     var battleMode = Config.BattleMode;
 
@@ -640,7 +643,7 @@ namespace eft_dma_radar
                     // Rebuild Players Spatial Index
                     if (allPlayers is not null)
                     {
-                        int playerCount = allPlayers is ICollection<Player> pColl ? pColl.Count : allPlayers.Count();
+                        int playerCount = allPlayers.Count;
                         if (mapChanged || playerCount != _lastPlayerCount)
                         {
                             _playerSpatialIndex.Rebuild(allPlayers, map.Config);
@@ -652,7 +655,7 @@ namespace eft_dma_radar
                     // Rebuild Containers Spatial Index
                     if (!battleMode && containers is not null && Config.Containers.Show && StaticLootContainer.Settings.Enabled)
                     {
-                        int containerCount = containers is ICollection<StaticLootContainer> cColl ? cColl.Count : containers.Count();
+                        int containerCount = containers is ICollection<StaticLootContainer> cColl ? cColl.Count : containers.AsValueEnumerable().Count();
                         if (mapChanged || containerCount != _lastContainerCount)
                         {
                             _containerSpatialIndex.Rebuild(containers, map.Config);
@@ -664,7 +667,7 @@ namespace eft_dma_radar
                     // Rebuild Loot Spatial Index
                     if (!battleMode && loot is not null && Config.ProcessLoot)
                     {
-                        int lootCount = loot is ICollection<LootItem> lColl ? lColl.Count : loot.Count();
+                        int lootCount = loot is ICollection<LootItem> lColl ? lColl.Count : loot.AsValueEnumerable().Count();
                         if (mapChanged || lootCount != _lastLootCount)
                         {
                             _lootSpatialIndex.Rebuild(loot, map.Config);
@@ -676,7 +679,7 @@ namespace eft_dma_radar
                     // Rebuild Explosives Spatial Index
                     if (explosives is not null && (Tripwire.Settings.Enabled || Grenade.Settings.Enabled || MortarProjectile.Settings.Enabled))
                     {
-                        int explosivesCount = explosives is ICollection<IExplosiveItem> eColl ? eColl.Count : explosives.Count();
+                        int explosivesCount = explosives is ICollection<IExplosiveItem> eColl ? eColl.Count : explosives.AsValueEnumerable().Count();
                         if (mapChanged || explosivesCount != _lastExplosivesCount)
                         {
                             _explosiveSpatialIndex.Rebuild(explosives, map.Config);
@@ -739,7 +742,7 @@ namespace eft_dma_radar
                             // Performance optimized: only regenerate doors list if count changed
                             if (doorsSet.Count != _lastDoorCount)
                             {
-                                Doors = doorsSet.ToList();
+                                Doors = doorsSet.AsValueEnumerable().ToList();
                                 _lastDoorCount = doorsSet.Count;
                             }
 
@@ -791,7 +794,7 @@ namespace eft_dma_radar
                         {
                             // Performance optimized: Use spatial index for viewport culling instead of checking each container
                             var visibleContainers = _containerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
-                            VisibleContainerCount = visibleContainers.Count();
+                            VisibleContainerCount = visibleContainers.AsValueEnumerable().Count();
                             foreach (var container in visibleContainers)
                             {
                                 if (LootSettingsControl.ContainerIsTracked(container.ID ?? "NULL"))
@@ -844,7 +847,7 @@ namespace eft_dma_radar
                             // Performance optimized: Use spatial index for viewport culling
                             // Query returns only entities within viewport bounds - massive performance gain for large loot counts
                             var visibleLoot = _lootSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
-                            VisibleLootCount = visibleLoot.Count();
+                            VisibleLootCount = visibleLoot.AsValueEnumerable().Count();
 
                             // Render in reverse order for proper z-ordering (items should render back-to-front)
                             foreach (var item in visibleLoot.Reverse())
@@ -883,7 +886,7 @@ namespace eft_dma_radar
                     {
                         if (LootItem.QuestItemSettings.Enabled && !localPlayer.IsScav)
                         {
-                            var questItems = Loot?.Where(x => x is QuestItem);
+                            var questItems = Loot?.AsValueEnumerable().Where(x => x is QuestItem);
                             if (questItems is not null)
                                 foreach (var item in questItems)
                                     item.Draw(canvas, mapParams, localPlayer);
@@ -905,7 +908,7 @@ namespace eft_dma_radar
 
                     if (!battleMode && Config.QuestHelper.Enabled && LootItem.QuestItemSettings.Enabled && !localPlayer.IsScav)
                     {
-                        var questItems = Loot?.Where(x => x is QuestItem);
+                        var questItems = Loot?.AsValueEnumerable().Where(x => x is QuestItem);
                         if (questItems is not null)
                             foreach (var item in questItems)
                                 item.Draw(canvas, mapParams, localPlayer);
@@ -924,7 +927,7 @@ namespace eft_dma_radar
                     {
                         // Use spatial index to query only players within viewport bounds
                         var visiblePlayers = _playerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
-                        VisiblePlayerCount = visiblePlayers.Count();
+                        VisiblePlayerCount = visiblePlayers.AsValueEnumerable().Count();
 
                         // Convert to HashSet for O(1) lookup to maintain draw order from GetOrderedPlayers
                         var visiblePlayerSet = new HashSet<Player>(visiblePlayers);
@@ -947,7 +950,7 @@ namespace eft_dma_radar
                         {
                             // Performance optimized: Use spatial index for viewport culling
                             var visibleExplosives = _explosiveSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f);
-                            VisibleExplosivesCount = visibleExplosives.Count();
+                            VisibleExplosivesCount = visibleExplosives.AsValueEnumerable().Count();
                             foreach (var explosive in visibleExplosives)
                             {
                                 explosive.Draw(canvas, mapParams, localPlayer);
@@ -1105,7 +1108,7 @@ namespace eft_dma_radar
             if (allPlayers is null) return;
 
             // Performance optimized: Use List<Player> to avoid multiple enumerations
-            var playersList = allPlayers as List<Player> ?? allPlayers.ToList();
+            var playersList = allPlayers as List<Player> ?? allPlayers.AsValueEnumerable().ToList();
 
             // Count grouped players first to avoid unnecessary allocation
             int groupedCount = 0;
@@ -1233,6 +1236,7 @@ namespace eft_dma_radar
 
             // Build new ordered list - only allocate once per frame
             _orderedPlayersCache = allPlayers
+                .AsValueEnumerable()
                 .Where(p => p != localPlayer)
                 .OrderBy(p => DrawPriority(p.Type))
                 .ToList();

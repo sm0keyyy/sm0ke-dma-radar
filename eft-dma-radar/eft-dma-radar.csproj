@@ -116,6 +116,7 @@
 	<ItemGroup>
 		<PackageReference Include="HandyControls" Version="3.6.0" />
 		<PackageReference Include="HelixToolkit.Wpf" Version="2.27.3" />
+		<PackageReference Include="NetFabric.Hyperlinq" Version="3.0.0-beta48" />
 		<PackageReference Include="Open.Nat.imerzan" Version="2.2.0" />
 		<PackageReference Include="SkiaSharp" Version="3.119.1" />
 		<PackageReference Include="SkiaSharp.Views.WindowsForms" Version="3.119.1" />
