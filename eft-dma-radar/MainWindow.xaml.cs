@@ -172,8 +172,13 @@ namespace eft_dma_radar
         private long _lastExplosivesRebuildFrame = -1;
         private string _lastSpatialIndexMapID = null;
 
-        // Rebuild interval: 30 frames = ~0.5 sec at 60fps (catches entity swaps quickly)
-        private const int SPATIAL_INDEX_REFRESH_INTERVAL = 30;
+        // Rebuild interval: At 75 FPS, 90 frames = ~1.2 sec (good balance for performance)
+        // Adjust based on your FPS: 60fps=60frames(1sec), 75fps=90frames(1.2sec)
+        private const int SPATIAL_INDEX_REFRESH_INTERVAL = 90;
+
+        // Cache dimming enabled state per frame to avoid repeated config access
+        private bool _playerDimmingEnabledCache = false;
+        private long _playerDimmingCacheFrame = -1;
 
         // Performance metrics for spatial culling (accessible by DebugInfoWidget)
         public int TotalPlayerCount { get; private set; } = 0;
@@ -825,7 +830,8 @@ namespace eft_dma_radar
                         {
                             // Performance optimized: Use spatial index for viewport culling instead of checking each container
                             // Materialize immediately to avoid lazy enumeration invalidation
-                            var visibleContainersList = _containerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f).ToList();
+                            // Reduced margin from 100f to 50f for better culling performance
+                            var visibleContainersList = _containerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 50f).ToList();
                             VisibleContainerCount = visibleContainersList.Count;
                             foreach (var container in visibleContainersList)
                             {
@@ -879,7 +885,8 @@ namespace eft_dma_radar
                             // Performance optimized: Use spatial index for viewport culling
                             // Query returns only entities within viewport bounds - massive performance gain for large loot counts
                             // Materialize immediately to avoid lazy enumeration invalidation
-                            var visibleLootList = _lootSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f).ToList();
+                            // Reduced margin from 100f to 50f for better culling performance (most important for loot)
+                            var visibleLootList = _lootSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 50f).ToList();
                             VisibleLootCount = visibleLootList.Count;
 
                             // Render in reverse order for proper z-ordering (items should render back-to-front)
@@ -960,7 +967,8 @@ namespace eft_dma_radar
                     {
                         // Use spatial index to query only players within viewport bounds
                         // Materialize immediately to avoid lazy enumeration invalidation
-                        var visiblePlayersList = _playerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f).ToList();
+                        // Reduced margin from 100f to 50f for better culling performance
+                        var visiblePlayersList = _playerSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 50f).ToList();
                         VisiblePlayerCount = visiblePlayersList.Count;
 
                         // Convert to HashSet for O(1) lookup to maintain draw order from GetOrderedPlayers
@@ -984,7 +992,8 @@ namespace eft_dma_radar
                         {
                             // Performance optimized: Use spatial index for viewport culling
                             // Materialize immediately to avoid lazy enumeration invalidation
-                            var visibleExplosivesList = _explosiveSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 100f).ToList();
+                            // Reduced margin from 100f to 50f for better culling performance
+                            var visibleExplosivesList = _explosiveSpatialIndex.QueryViewport(mapParams, canvasWidth, canvasHeight, margin: 50f).ToList();
                             VisibleExplosivesCount = visibleExplosivesList.Count;
                             foreach (var explosive in visibleExplosivesList)
                             {
@@ -1219,13 +1228,30 @@ namespace eft_dma_radar
         /// <returns>Opacity multiplier (0.0-1.0). 1.0 = full opacity, lower values = more transparent</returns>
         private float CalculateEntityOpacityNearPlayers(Vector3 entityPos, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
         {
-            if (!Config.PlayerDimmingEnabled || allPlayers is null)
+            // Cache dimming enabled check per frame to avoid repeated config access
+            if (_playerDimmingCacheFrame != _currentFrame)
+            {
+                _playerDimmingEnabledCache = Config.PlayerDimmingEnabled;
+                _playerDimmingCacheFrame = _currentFrame;
+            }
+
+            if (!_playerDimmingEnabledCache || allPlayers is null)
                 return 1.0f; // Full opacity when dimming is disabled
 
-            var entityMapPos = entityPos.ToMapPos(map.Config).ToZoomedPos(mapParams);
-            float minDistanceSq = float.MaxValue;
+            // OPTIMIZATION: Use player spatial index for O(log n) proximity queries instead of O(n) iteration
+            // Query only nearby players within max dimming radius
+            float maxRadius = Math.Max(Config.LocalPlayerDimmingRadius, Config.PlayerDimmingRadius) * UIScale;
+            var entityMapPos = entityPos.ToMapPos(map.Config);
 
-            foreach (var player in allPlayers)
+            // Use spatial index to get only nearby players
+            var nearbyPlayers = _playerSpatialIndex.QueryRadius(
+                new System.Numerics.Vector2(entityMapPos.X, entityMapPos.Y),
+                maxRadius
+            );
+
+            var entityZoomedPos = entityMapPos.ToZoomedPos(mapParams);
+
+            foreach (var player in nearbyPlayers)
             {
                 if (player is null) continue;
 
@@ -1235,15 +1261,12 @@ namespace eft_dma_radar
                     Config.PlayerDimmingRadius * UIScale;
 
                 // Calculate squared distance (avoid sqrt for performance)
-                float dx = entityMapPos.X - playerMapPos.X;
-                float dy = entityMapPos.Y - playerMapPos.Y;
+                float dx = entityZoomedPos.X - playerMapPos.X;
+                float dy = entityZoomedPos.Y - playerMapPos.Y;
                 float distSq = dx * dx + dy * dy;
                 float radiusSq = radius * radius;
 
-                if (distSq < minDistanceSq)
-                    minDistanceSq = distSq;
-
-                // Early exit if we're already very close to a player
+                // Early exit if we're inside dimming zone
                 if (distSq <= radiusSq)
                 {
                     // Inside dimming zone: apply configured opacity reduction
