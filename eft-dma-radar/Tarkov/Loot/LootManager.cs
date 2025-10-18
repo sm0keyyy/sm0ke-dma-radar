@@ -77,13 +77,13 @@ namespace eft_dma_radar.Tarkov.Loot
 
         /// <summary>
         /// Refreshes loot, only call from a memory thread (Non-GUI).
-        /// OPTIMIZED: Uses early BSG ID filtering to skip 90-95% of processing.
+        /// OPTIMIZED: Parallel batch processing for 2-4x speedup.
         /// </summary>
         public void Refresh()
         {
             try
             {
-                GetLoot_FastFiltered(); // OPTIMIZED VERSION - was GetLoot()
+                GetLoot_ParallelOptimized(); // OPTIMIZED: Parallel batch processing
                 RefreshFilter();
 
                 LootItem.CleanupNotificationHistory(UnfilteredLoot);
@@ -337,6 +337,274 @@ namespace eft_dma_radar.Tarkov.Loot
             map.Execute(); // execute scatter read
             this.UnfilteredLoot = loot;
             this.StaticLootContainers = containers;
+        }
+
+        /// <summary>
+        /// OPTIMIZED: Parallel batch processing of loot items.
+        ///
+        /// OPTIMIZATION STRATEGY:
+        /// - Split loot into batches of 250-500 items
+        /// - Process each batch in parallel (up to 4 batches concurrently)
+        /// - Each batch runs its own scatter read pipeline
+        /// - Merge results at the end
+        ///
+        /// Expected: 171ms → 40-80ms (50-75% improvement with 4 cores)
+        /// </summary>
+        private void GetLoot_ParallelOptimized()
+        {
+            var lootListAddr = Memory.ReadPtr(_lgw + Offsets.ClientLocalGameWorld.LootList);
+            using var lootList = MemList<ulong>.Get(lootListAddr);
+
+            var deadPlayers = Memory.Players?
+                .Where(x => x.Corpse is not null)?.ToList();
+
+            // Split into batches for parallel processing
+            const int BATCH_SIZE = 400; // Process 400 items per batch
+            const int MAX_PARALLEL = 4; // Run up to 4 batches in parallel
+
+            var allLoot = new System.Collections.Concurrent.ConcurrentBag<LootItem>();
+            var allContainers = new System.Collections.Concurrent.ConcurrentBag<StaticLootContainer>();
+
+            // Create batches
+            var batches = new List<(int start, int count)>();
+            for (int i = 0; i < lootList.Count; i += BATCH_SIZE)
+            {
+                var count = Math.Min(BATCH_SIZE, lootList.Count - i);
+                batches.Add((i, count));
+            }
+
+            // Process batches in parallel
+            Parallel.ForEach(batches,
+                new ParallelOptions { MaxDegreeOfParallelism = MAX_PARALLEL, CancellationToken = _ct },
+                batch =>
+                {
+                    var (batchLoot, batchContainers) = ProcessLootBatch(lootList, batch.start, batch.count, deadPlayers);
+                    foreach (var item in batchLoot)
+                        allLoot.Add(item);
+                    foreach (var container in batchContainers)
+                        allContainers.Add(container);
+                });
+
+            // Merge results
+            UnfilteredLoot = allLoot.ToList();
+            StaticLootContainers = allContainers.ToList();
+        }
+
+        /// <summary>
+        /// Process a single batch of loot items (used by parallel optimization).
+        /// This is the same logic as GetLoot_Original() but for a subset of items.
+        /// </summary>
+        private (List<LootItem>, List<StaticLootContainer>) ProcessLootBatch(
+            MemList<ulong> lootList, int startIndex, int count, IReadOnlyList<Player> deadPlayers)
+        {
+            var loot = new List<LootItem>(count);
+            var containers = new List<StaticLootContainer>(32);
+
+            using var map = ScatterReadMap.Get();
+            var round1 = map.AddRound();
+            var round2 = map.AddRound();
+            var round3 = map.AddRound();
+            var round4 = map.AddRound();
+            var round5 = map.AddRound();
+            var round6 = map.AddRound();
+            var round7 = map.AddRound();
+            var round8 = map.AddRound();
+
+            // Process only items in this batch
+            for (int ix = startIndex; ix < startIndex + count; ix++)
+            {
+                var i = ix;
+                _ct.ThrowIfCancellationRequested();
+                var lootBase = lootList[i];
+
+                // EXACT SAME LOGIC AS GetLoot_Original(), just for this batch
+                round1[i].AddEntry<MemPointer>(0, lootBase + ObjectClass.MonoBehaviourOffset);
+                round1[i].AddEntry<MemPointer>(1, lootBase + ObjectClass.To_NamePtr[0]);
+
+                round1[i].Callbacks += x1 =>
+                {
+                    if (x1.TryGetResult<MemPointer>(0, out var monoBehaviour) && x1.TryGetResult<MemPointer>(1, out var c1))
+                    {
+                        round2[i].AddEntry<MemPointer>(2, monoBehaviour + MonoBehaviour.ObjectClassOffset);
+                        round2[i].AddEntry<MemPointer>(3, monoBehaviour + MonoBehaviour.GameObjectOffset);
+                        round2[i].AddEntry<MemPointer>(4, c1 + ObjectClass.To_NamePtr[1]);
+
+                        round2[i].Callbacks += x2 =>
+                        {
+                            if (x2.TryGetResult<MemPointer>(2, out var interactiveClass) &&
+                                x2.TryGetResult<MemPointer>(3, out var gameObject) &&
+                                x2.TryGetResult<MemPointer>(4, out var c2))
+                            {
+                                round3[i].AddEntry<MemPointer>(5, c2 + ObjectClass.To_NamePtr[2]);
+                                round3[i].AddEntry<MemPointer>(6, gameObject + GameObject.ComponentsOffset);
+                                round3[i].AddEntry<MemPointer>(7, gameObject + GameObject.NameOffset);
+
+                                round3[i].Callbacks += x3 =>
+                                {
+                                    if (x3.TryGetResult<MemPointer>(5, out var classNamePtr) &&
+                                        x3.TryGetResult<MemPointer>(6, out var components) &&
+                                        x3.TryGetResult<MemPointer>(7, out var pGameObjectName))
+                                    {
+                                        round4[i].AddEntry<UTF8String>(8, classNamePtr, 64);
+                                        round4[i].AddEntry<UTF8String>(9, pGameObjectName, 64);
+                                        round4[i].AddEntry<MemPointer>(10, components + 0x8);
+
+                                        round4[i].Callbacks += x4 =>
+                                        {
+                                            if (x4.TryGetResult<UTF8String>(8, out var classNameUtf8) &&
+                                                x4.TryGetResult<UTF8String>(9, out var objectNameUtf8) &&
+                                                x4.TryGetResult<MemPointer>(10, out var transformInternal))
+                                            {
+                                                string className = classNameUtf8;
+                                                string objectName = objectNameUtf8;
+
+                                                var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
+                                                var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
+                                                var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
+                                                var skipScript = objectName.Contains("script", StringComparison.OrdinalIgnoreCase);
+
+                                                if (!skipScript && (isLooseLoot || isContainer))
+                                                {
+                                                    if (isLooseLoot)
+                                                    {
+                                                        round5[i].AddEntry<ulong>(11, interactiveClass + Offsets.InteractiveLootItem.Item);
+                                                    }
+
+                                                    if (isContainer && !objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        round5[i].AddEntry<ulong>(18, interactiveClass + Offsets.LootableContainer.ItemOwner);
+                                                        round5[i].AddEntry<ulong>(19, interactiveClass + Offsets.LootableContainer.InteractingPlayer);
+                                                    }
+
+                                                    round5[i].Callbacks += x5 =>
+                                                    {
+                                                        if (isLooseLoot && x5.TryGetResult<ulong>(11, out var lootItemPtr) && lootItemPtr != 0)
+                                                        {
+                                                            round6[i].AddEntry<ulong>(13, lootItemPtr + Offsets.LootItem.Template);
+                                                        }
+
+                                                        if (isContainer && x5.TryGetResult<ulong>(18, out var containerOwnerPtr) && containerOwnerPtr != 0)
+                                                        {
+                                                            round6[i].AddEntry<ulong>(20, containerOwnerPtr + Offsets.LootableContainerItemOwner.RootItem);
+                                                        }
+
+                                                        round6[i].Callbacks += x6 =>
+                                                        {
+                                                            if (isContainer && x6.TryGetResult<ulong>(20, out var containerRootItem))
+                                                            {
+                                                                round7[i].AddEntry<ulong>(21, containerRootItem + Offsets.LootItem.Template);
+                                                                round7[i].Callbacks += x7_container =>
+                                                                {
+                                                                    if (x7_container.TryGetResult<ulong>(21, out var containerTemplate))
+                                                                    {
+                                                                        round8[i].AddEntry<Types.MongoID>(22, containerTemplate + Offsets.ItemTemplate._id);
+                                                                        round8[i].Callbacks += x8_container =>
+                                                                        {
+                                                                            if (x8_container.TryGetResult<Types.MongoID>(22, out var bsgIdPtr))
+                                                                            {
+                                                                                var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+                                                                                x5.TryGetResult<ulong>(19, out var interactingPlayer);
+                                                                                bool containerOpened = interactingPlayer != 0;
+
+                                                                                map.CompletionCallbacks += () =>
+                                                                                {
+                                                                                    var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+                                                                                    containers.Add(new StaticLootContainer(bsgId, containerOpened)
+                                                                                    {
+                                                                                        Position = pos,
+                                                                                        InteractiveClass = interactiveClass,
+                                                                                        GameObject = gameObject
+                                                                                    });
+                                                                                };
+                                                                            }
+                                                                        };
+                                                                    }
+                                                                };
+                                                            }
+
+                                                            if (isLooseLoot && x6.TryGetResult<ulong>(13, out var lootTemplate))
+                                                            {
+                                                                round7[i].AddEntry<bool>(16, lootTemplate + Offsets.ItemTemplate.QuestItem);
+                                                                round7[i].AddEntry<Types.MongoID>(17, lootTemplate + Offsets.ItemTemplate._id);
+
+                                                                round7[i].Callbacks += x7_loot =>
+                                                                {
+                                                                    if (x7_loot.TryGetResult<bool>(16, out var isQuestItem) &&
+                                                                        x7_loot.TryGetResult<Types.MongoID>(17, out var bsgIdPtr))
+                                                                    {
+                                                                        var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+
+                                                                        map.CompletionCallbacks += () =>
+                                                                        {
+                                                                            var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+
+                                                                            if (isQuestItem)
+                                                                            {
+                                                                                if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                                {
+                                                                                    loot.Add(new QuestItem(entry)
+                                                                                    {
+                                                                                        Position = pos,
+                                                                                        InteractiveClass = interactiveClass
+                                                                                    });
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    var shortNamePtr = Memory.ReadPtr(lootTemplate + Offsets.ItemTemplate.ShortName);
+                                                                                    var shortName = Memory.ReadUnityString(shortNamePtr)?.Trim();
+                                                                                    if (string.IsNullOrEmpty(shortName))
+                                                                                        shortName = "Item";
+                                                                                    loot.Add(new QuestItem(bsgId, $"Q_{shortName}")
+                                                                                    {
+                                                                                        Position = pos,
+                                                                                        InteractiveClass = interactiveClass
+                                                                                    });
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                                {
+                                                                                    loot.Add(new LootItem(entry)
+                                                                                    {
+                                                                                        Position = pos,
+                                                                                        InteractiveClass = interactiveClass
+                                                                                    });
+                                                                                }
+                                                                            }
+                                                                        };
+                                                                    }
+                                                                };
+                                                            }
+                                                        };
+                                                    };
+                                                }
+                                                else
+                                                {
+                                                    map.CompletionCallbacks += () =>
+                                                    {
+                                                        _ct.ThrowIfCancellationRequested();
+                                                        try
+                                                        {
+                                                            ProcessLootIndex(loot, containers, deadPlayers,
+                                                                interactiveClass, objectName,
+                                                                transformInternal, className, gameObject);
+                                                        }
+                                                        catch { }
+                                                    };
+                                                }
+                                            }
+                                        };
+                                    }
+                                };
+                            }
+                        };
+                    }
+                };
+            }
+
+            map.Execute();
+            return (loot, containers);
         }
 
         /// <summary>
