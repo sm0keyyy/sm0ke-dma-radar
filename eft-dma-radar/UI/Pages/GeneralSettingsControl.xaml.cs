@@ -653,6 +653,8 @@ namespace eft_dma_radar.UI.Pages
             chkHideInactive.Unchecked += GeneralCheckbox_Checked;
 
             // Monitor
+            chkAutoDetectMonitors.Checked += GeneralCheckbox_Checked;
+            chkAutoDetectMonitors.Unchecked += GeneralCheckbox_Checked;
             cboMonitor.SelectionChanged += GeneralComboBox_SelectionChanged;
             btnRefreshMonitors.Click += btnRefreshMonitors_Click;
             txtGameWidth.TextChanged += GeneralTextbox_TextChanged;
@@ -707,6 +709,7 @@ namespace eft_dma_radar.UI.Pages
             sldrLocalDimmingRadius.Value = Config.LocalPlayerDimmingRadius;
 
             // Monitor
+            chkAutoDetectMonitors.IsChecked = Config.AutoDetectMonitors;
             txtGameHeight.Text = Config.MonitorHeight.ToString();
             txtGameWidth.Text = Config.MonitorWidth.ToString();
             CameraManagerBase.UpdateViewportRes();
@@ -1358,16 +1361,47 @@ namespace eft_dma_radar.UI.Pages
             cboMonitor.Items.Clear();
             var selectedIndex = 0;
 
+            // Determine selected index based on auto-detect setting
+            if (Config.AutoDetectMonitors)
+            {
+                LoneLogging.WriteLine("[InitMonitors] Auto-detect is enabled, searching for game monitor...");
+                // Auto-detect: find monitor matching game resolution
+                for (int i = 0; i < monitors.Count; i++)
+                {
+                    var mon = monitors[i];
+                    var isGame = (int)mon.Bounds.Width == gameRes.Width && (int)mon.Bounds.Height == gameRes.Height;
+                    if (isGame)
+                    {
+                        selectedIndex = i;
+                        LoneLogging.WriteLine($"[InitMonitors] Auto-detected game monitor at index {i}");
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // Manual selection: use saved SelectedMonitorIndex
+                LoneLogging.WriteLine($"[InitMonitors] Manual mode, using saved index: {Config.SelectedMonitorIndex}");
+                selectedIndex = Config.SelectedMonitorIndex;
+                // Validate the saved index
+                if (selectedIndex < 0 || selectedIndex >= monitors.Count)
+                {
+                    LoneLogging.WriteLine($"[InitMonitors] Saved index {selectedIndex} is invalid, defaulting to 0");
+                    selectedIndex = 0;
+                }
+            }
+
+            // Populate combo box
             for (int i = 0; i < monitors.Count; i++)
             {
                 var mon = monitors[i];
                 LoneLogging.WriteLine($"[InitMonitors] Monitor {i + 1}: {mon.Bounds.Width}x{mon.Bounds.Height}");
 
                 var isGame = (int)mon.Bounds.Width == gameRes.Width && (int)mon.Bounds.Height == gameRes.Height;
-                if (isGame)
-                    LoneLogging.WriteLine($"[InitMonitors] Monitor {i + 1} matches game resolution and will be selected.");
+                var isPrimary = mon.IsPrimary;
 
                 var label = isGame ? $"Game Monitor ({mon.Bounds.Width}x{mon.Bounds.Height})"
+                                   : isPrimary ? $"Primary Monitor ({mon.Bounds.Width}x{mon.Bounds.Height})"
                                    : $"Monitor {i + 1} ({mon.Bounds.Width}x{mon.Bounds.Height})";
 
                 var item = new ComboBoxItem
@@ -1377,10 +1411,10 @@ namespace eft_dma_radar.UI.Pages
                 };
 
                 cboMonitor.Items.Add(item);
-
-                if (isGame)
-                    selectedIndex = i;
             }
+
+            // Enable/disable combo box based on auto-detect setting
+            cboMonitor.IsEnabled = !Config.AutoDetectMonitors;
 
             if (cboMonitor.Items.Count > 0)
             {
@@ -1423,6 +1457,13 @@ namespace eft_dma_radar.UI.Pages
 
                 Config.MonitorWidth = (int)monitorWidth;
                 Config.MonitorHeight = (int)monitorHeight;
+
+                // Save the selected monitor index (only when manually selected)
+                if (!Config.AutoDetectMonitors)
+                {
+                    Config.SelectedMonitorIndex = selectedIndex;
+                    LoneLogging.WriteLine($"[UpdateMonitorWH] Saved selected monitor index: {selectedIndex}");
+                }
 
                 txtGameWidth.Text = monitorWidth.ToString();
                 txtGameHeight.Text = monitorHeight.ToString();
@@ -1527,6 +1568,11 @@ namespace eft_dma_radar.UI.Pages
                     case "HideInactiveExfils":
                     case "ShowTripwireLine":
                         SaveEntityTypeSettings();
+                        break;
+                    case "AutoDetectMonitors":
+                        Config.AutoDetectMonitors = value;
+                        cboMonitor.IsEnabled = !value;
+                        InitMonitors();
                         break;
                     case "RefreshMonitors":
                         InitMonitors();

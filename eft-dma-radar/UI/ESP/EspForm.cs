@@ -167,14 +167,35 @@ namespace eft_dma_radar.UI.ESP
             skglControl_ESP.DoubleClick += ESPForm_DoubleClick;
             _fpsSw.Start();
 
+            // Position window on selected/detected monitor
             var allScreens = Screen.AllScreens;
-            if (ESPConfig.AutoFullscreen && ESPConfig.SelectedScreen < allScreens.Length)
+            var monitorIndex = Config.AutoDetectMonitors ? GetAutoDetectedMonitorIndex(allScreens) : Config.SelectedMonitorIndex;
+
+            // Validate monitor index
+            if (monitorIndex < 0 || monitorIndex >= allScreens.Length)
             {
-                var screen = allScreens[ESPConfig.SelectedScreen];
+                LoneLogging.WriteLine($"[ESPForm] Invalid monitor index {monitorIndex}, defaulting to 0");
+                monitorIndex = 0;
+            }
+
+            if (ESPConfig.AutoFullscreen && monitorIndex < allScreens.Length)
+            {
+                var screen = allScreens[monitorIndex];
                 var bounds = screen.Bounds;
                 FormBorderStyle = FormBorderStyle.None;
                 Location = new Point(bounds.Left, bounds.Top);
                 Size = CameraManagerBase.Viewport.Size;
+                LoneLogging.WriteLine($"[ESPForm] Auto-fullscreen on monitor {monitorIndex}: {bounds.Width}x{bounds.Height} at {bounds.Left},{bounds.Top}");
+            }
+            else if (monitorIndex < allScreens.Length)
+            {
+                // Not auto-fullscreen, but still position on the selected monitor
+                var screen = allScreens[monitorIndex];
+                var bounds = screen.Bounds;
+                // Center the form on the selected monitor
+                StartPosition = FormStartPosition.Manual;
+                Location = new Point(bounds.Left + (bounds.Width - Width) / 2, bounds.Top + (bounds.Height - Height) / 2);
+                LoneLogging.WriteLine($"[ESPForm] Positioned on monitor {monitorIndex}: {bounds.Width}x{bounds.Height} at {Location.X},{Location.Y}");
             }
 
             LoadUIPositions();
@@ -186,6 +207,25 @@ namespace eft_dma_radar.UI.ESP
             _renderTimer = new PrecisionTimer(interval);
 
             this.Shown += ESPForm_Shown;
+        }
+
+        /// <summary>
+        /// Helper method to auto-detect the monitor index based on game resolution
+        /// </summary>
+        private int GetAutoDetectedMonitorIndex(Screen[] allScreens)
+        {
+            var gameRes = Memory.GetMonitorRes();
+            for (int i = 0; i < allScreens.Length; i++)
+            {
+                var screen = allScreens[i];
+                if (screen.Bounds.Width == gameRes.Width && screen.Bounds.Height == gameRes.Height)
+                {
+                    LoneLogging.WriteLine($"[ESPForm] Auto-detected game monitor at index {i}");
+                    return i;
+                }
+            }
+            LoneLogging.WriteLine("[ESPForm] Could not auto-detect game monitor, defaulting to 0");
+            return 0;
         }
 
         private async void ESPForm_Shown(object sender, EventArgs e)

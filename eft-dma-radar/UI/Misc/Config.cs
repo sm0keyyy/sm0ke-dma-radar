@@ -594,6 +594,18 @@ namespace eft_dma_radar.UI.Misc
         public int MonitorHeight { get; set; } = 1080;
 
         /// <summary>
+        /// Selected Monitor Index (-1 for auto-detect)
+        /// </summary>
+        [JsonPropertyName("selectedMonitorIndex")]
+        public int SelectedMonitorIndex { get; set; } = -1;
+
+        /// <summary>
+        /// Auto-detect which monitor to use for fuser ESP
+        /// </summary>
+        [JsonPropertyName("autoDetectMonitors")]
+        public bool AutoDetectMonitors { get; set; } = true;
+
+        /// <summary>
         /// All defined Radar Colors.
         /// </summary>
         [JsonPropertyName("radarColors")]

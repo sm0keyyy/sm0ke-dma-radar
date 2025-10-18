@@ -419,6 +419,10 @@
                             <!-- Monitor Settings Section -->
                             <Expander x:Name="expMonitorSettings" Header="Monitor Settings" Style="{StaticResource PanelExpander}" IsExpanded="True">
                                 <hc:SimpleStackPanel Style="{StaticResource ExpanderContent}" Margin="2,8,2,0">
+                                    <!-- Auto-detect Monitor Checkbox -->
+                                    <CheckBox x:Name="chkAutoDetectMonitors" Content="Auto-detect Monitor" Tag="AutoDetectMonitors"
+                                              Style="{StaticResource DynamicCheckBoxStyle}" Margin="0,0,0,8"/>
+
                                     <!-- Monitor Selection -->
                                     <Grid Margin="0,0,0,8">
                                         <Grid.ColumnDefinitions>
