@@ -3141,7 +3141,7 @@ namespace eft_dma_radar.UI.Pages
         #region ConfigTab
         private bool _isRefreshingConfigList = false;
         private bool _ignoreConfigSelectionChanged = false;
-        private async Task InitializeConfigTab()
+        private void InitializeConfigTab()
         {
             RefreshConfigList();
             txtCurrentConfig.Text = Path.GetFileNameWithoutExtension(ConfigManager.CurrentConfigName);

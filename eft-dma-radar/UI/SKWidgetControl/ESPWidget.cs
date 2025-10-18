@@ -409,20 +409,23 @@ namespace eft_dma_radar.UI.ESP
 
             canvas.DrawRect(TitleBar, TitleBarPaint);
             var titleCenterY = TitleBar.Top + (TitleBar.Height / 2);
-            var titleYOffset = (TitleBarText.FontMetrics.Ascent + TitleBarText.FontMetrics.Descent) / 2;
+            var titleYOffset = (_titleBarFont.Metrics.Ascent + _titleBarFont.Metrics.Descent) / 2;
 
             canvas.DrawText(Title,
-                new(TitleBar.Left + 2.5f * ScaleFactor,
-                titleCenterY - titleYOffset),
+                TitleBar.Left + 2.5f * ScaleFactor,
+                titleCenterY - titleYOffset,
+                _titleBarFont,
                 TitleBarText);
 
             if (!string.IsNullOrEmpty(RightTitleInfo))
             {
-                var rightInfoWidth = RightTitleInfoText.MeasureText(RightTitleInfo);
+                var rightInfoWidth = _rightTitleInfoFont.MeasureText(RightTitleInfo);
                 var rightX = TitleBar.Right - rightInfoWidth - 2.5f * ScaleFactor - TitleBarHeight;
 
                 canvas.DrawText(RightTitleInfo,
-                    new(rightX, titleCenterY - titleYOffset),
+                    rightX,
+                    titleCenterY - titleYOffset,
+                    _rightTitleInfoFont,
                     RightTitleInfoText);
             }
 
@@ -439,8 +442,8 @@ namespace eft_dma_radar.UI.ESP
             ScaleFactor = newScale;
             InitializeResizeTriangle();
 
-            TitleBarText.TextSize = 12F * newScale;
-            RightTitleInfoText.TextSize = 12F * newScale;
+            _titleBarFont.Size = 12F * newScale;
+            _rightTitleInfoFont.Size = 12F * newScale;
             SymbolPaint.StrokeWidth = 2f * newScale;
         }
         #endregion
@@ -541,28 +544,30 @@ namespace eft_dma_radar.UI.ESP
             IsAntialias = true
         };
 
+        private static SKFont _titleBarFont = new SKFont()
+        {
+            Size = 12f,
+            Subpixel = true
+        };
+
         private static readonly SKPaint TitleBarText = new SKPaint()
         {
-            SubpixelText = true,
             Color = SKColors.White,
             IsStroke = false,
-            TextSize = 12f,
-            TextAlign = SKTextAlign.Left,
-            TextEncoding = SKTextEncoding.Utf8,
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.High
+            IsAntialias = true
+        };
+
+        private static SKFont _rightTitleInfoFont = new SKFont()
+        {
+            Size = 12f,
+            Subpixel = true
         };
 
         private static readonly SKPaint RightTitleInfoText = new SKPaint()
         {
-            SubpixelText = true,
             Color = SKColors.White,
             IsStroke = false,
-            TextSize = 12f,
-            TextAlign = SKTextAlign.Left,
-            TextEncoding = SKTextEncoding.Utf8,
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.High
+            IsAntialias = true
         };
         #endregion
 
