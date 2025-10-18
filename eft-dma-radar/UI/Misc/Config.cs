@@ -414,15 +414,80 @@ namespace eft_dma_radar.UI.Misc
 
         /// <summary>
         /// Zoom percentage threshold for LOD 0->1 transition (1-100, default: 70)
+        /// Legacy property for backwards compatibility - DO NOT USE
         /// </summary>
         [JsonPropertyName("lod0Threshold")]
+        [Obsolete("Use MapLODThresholds instead")]
         public int LOD0Threshold { get; set; } = 70;
 
         /// <summary>
         /// Zoom percentage threshold for LOD 1->2 transition (1-100, default: 85)
+        /// Legacy property for backwards compatibility - DO NOT USE
         /// </summary>
         [JsonPropertyName("lod1Threshold")]
+        [Obsolete("Use MapLODThresholds instead")]
         public int LOD1Threshold { get; set; } = 85;
+
+        /// <summary>
+        /// Per-map LOD threshold configurations
+        /// </summary>
+        [JsonPropertyName("mapLODThresholds")]
+        [JsonInclude]
+        public Dictionary<string, MapLODConfig> MapLODThresholds { get; private set; } = new Dictionary<string, MapLODConfig>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["default"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["woods"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["shoreline"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["rezervbase"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["laboratory"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["interchange"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["factory4_day"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["factory4_night"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["bigmap"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["lighthouse"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["tarkovstreets"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["Sandbox"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["Sandbox_high"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 },
+            ["Labyrinth"] = new MapLODConfig { LOD0Threshold = 70, LOD1Threshold = 85 }
+        };
+
+        /// <summary>
+        /// Helper method to get LOD thresholds for a specific map
+        /// </summary>
+        /// <param name="mapId">Map ID to get thresholds for</param>
+        /// <param name="lod0">Output LOD0 threshold</param>
+        /// <param name="lod1">Output LOD1 threshold</param>
+        public void GetMapLODThresholds(string mapId, out int lod0, out int lod1)
+        {
+            if (!string.IsNullOrEmpty(mapId) && MapLODThresholds.TryGetValue(mapId, out var config))
+            {
+                lod0 = config.LOD0Threshold;
+                lod1 = config.LOD1Threshold;
+            }
+            else if (MapLODThresholds.TryGetValue("default", out var defaultConfig))
+            {
+                lod0 = defaultConfig.LOD0Threshold;
+                lod1 = defaultConfig.LOD1Threshold;
+            }
+            else
+            {
+                // Ultimate fallback
+                lod0 = 70;
+                lod1 = 85;
+            }
+        }
+
+        /// <summary>
+        /// Configuration for LOD thresholds
+        /// </summary>
+        public class MapLODConfig
+        {
+            [JsonPropertyName("lod0Threshold")]
+            public int LOD0Threshold { get; set; } = 70;
+
+            [JsonPropertyName("lod1Threshold")]
+            public int LOD1Threshold { get; set; } = 85;
+        }
 
         /// <summary>
         /// Enable 'Battle Mode', hides all non-essential information.

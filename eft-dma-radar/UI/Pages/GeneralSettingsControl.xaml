@@ -123,6 +123,7 @@
                                                 <RowDefinition Height="*"/>
                                                 <RowDefinition Height="*"/>
                                                 <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="*"/>
                                                 <RowDefinition Height="*"/>
                                             </Grid.RowDefinitions>
@@ -158,25 +159,30 @@
                                                 ContentStringFormat="{}{0:0x}"
                                                 Grid.Row="2" Grid.Column="1"/>
 
+                                            <TextBlock Text="LOD Map Config" Style="{StaticResource LabelText}"
+                                                       VerticalAlignment="Center" Grid.Row="3" Grid.Column="0" Margin="0,8,0,0"/>
+                                            <ComboBox x:Name="cmbLODMapSelector" Grid.Row="3" Grid.Column="1"
+                                                      Margin="0,8,0,4" SelectionChanged="cmbLODMapSelector_SelectionChanged"/>
+
                                             <TextBlock Text="LOD0 Threshold" Style="{StaticResource LabelText}"
-                                                       VerticalAlignment="Center" Grid.Row="3" Grid.Column="0"/>
+                                                       VerticalAlignment="Center" Grid.Row="4" Grid.Column="0"/>
                                             <controls:TextValueSlider
                                                 x:Name="sldrLOD0Threshold" Tag="LOD0Threshold"
                                                 Minimum="1" Maximum="100"
                                                 SmallChange="1" TickFrequency="1"
                                                 IsSnapToTickEnabled="True"
                                                 ContentStringFormat="{}{0:0}%"
-                                                Grid.Row="3" Grid.Column="1"/>
+                                                Grid.Row="4" Grid.Column="1"/>
 
                                             <TextBlock Text="LOD1 Threshold" Style="{StaticResource LabelText}"
-                                                       VerticalAlignment="Center" Grid.Row="4" Grid.Column="0"/>
+                                                       VerticalAlignment="Center" Grid.Row="5" Grid.Column="0"/>
                                             <controls:TextValueSlider
                                                 x:Name="sldrLOD1Threshold" Tag="LOD1Threshold"
                                                 Minimum="1" Maximum="100"
                                                 SmallChange="1" TickFrequency="1"
                                                 IsSnapToTickEnabled="True"
                                                 ContentStringFormat="{}{0:0}%"
-                                                Grid.Row="4" Grid.Column="1"/>
+                                                Grid.Row="5" Grid.Column="1"/>
                                         </Grid>
                                     </hc:SimpleStackPanel>
 

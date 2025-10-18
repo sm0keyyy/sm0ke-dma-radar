@@ -96,6 +96,7 @@ namespace eft_dma_radar.UI.Pages
         private bool _isLoadingPlayerSettings = false;
         private bool _isLoadingSettingAndWidgets = false;
         private bool _isLoadingEntitySettings = false;
+        private string _currentLODMapId = "default";
 
         private MainWindow mainWindow => MainWindow.Window;
 
@@ -612,8 +613,9 @@ namespace eft_dma_radar.UI.Pages
             sldrUIScale.ValueChanged += GeneralSlider_ValueChanged;
             sldrZoomToMouse.ValueChanged += GeneralSlider_ValueChanged;
             sldrZoomStep.ValueChanged += GeneralSlider_ValueChanged;
-            sldrLOD0Threshold.ValueChanged += GeneralSlider_ValueChanged;
-            sldrLOD1Threshold.ValueChanged += GeneralSlider_ValueChanged;
+            cmbLODMapSelector.SelectionChanged += cmbLODMapSelector_SelectionChanged;
+            sldrLOD0Threshold.ValueChanged += LODSlider_ValueChanged;
+            sldrLOD1Threshold.ValueChanged += LODSlider_ValueChanged;
 
             // Player Dimming
             chkPlayerDimming.Checked += GeneralCheckbox_Checked;
@@ -703,8 +705,10 @@ namespace eft_dma_radar.UI.Pages
             sldrUIScale.Value = Config.UIScale;
             sldrZoomToMouse.Value = Config.ZoomToMouse;
             sldrZoomStep.Value = Config.ZoomStep;
-            sldrLOD0Threshold.Value = Config.LOD0Threshold;
-            sldrLOD1Threshold.Value = Config.LOD1Threshold;
+
+            // Initialize LOD Map Selector
+            InitializeLODMapSelector();
+            LoadLODThresholdsForMap(_currentLODMapId);
 
             // Player Dimming
             chkPlayerDimming.IsChecked = Config.PlayerDimmingEnabled;
@@ -1757,6 +1761,105 @@ namespace eft_dma_radar.UI.Pages
                         Config.RadarTargetFPS = intValue;
                         Config.Save();
                         MainWindow.Window.UpdateRenderTimerInterval(intValue);
+                        break;
+                }
+
+                Config.Save();
+            }
+        }
+
+        private void InitializeLODMapSelector()
+        {
+            cmbLODMapSelector.Items.Clear();
+
+            // Only include EFT maps (exclude Arena maps)
+            var eftMaps = new Dictionary<string, string>
+            {
+                ["default"] = "Default",
+                ["woods"] = "Woods",
+                ["shoreline"] = "Shoreline",
+                ["rezervbase"] = "Reserve",
+                ["laboratory"] = "Labs",
+                ["interchange"] = "Interchange",
+                ["factory4_day"] = "Factory (Day)",
+                ["factory4_night"] = "Factory (Night)",
+                ["bigmap"] = "Customs",
+                ["lighthouse"] = "Lighthouse",
+                ["tarkovstreets"] = "Streets",
+                ["Sandbox"] = "Ground Zero",
+                ["Sandbox_high"] = "Ground Zero (High)",
+                ["Labyrinth"] = "The Labyrinth"
+            };
+
+            foreach (var map in eftMaps)
+            {
+                var item = new ComboBoxItem
+                {
+                    Content = map.Value,
+                    Tag = map.Key
+                };
+                cmbLODMapSelector.Items.Add(item);
+
+                if (map.Key == _currentLODMapId)
+                {
+                    cmbLODMapSelector.SelectedItem = item;
+                }
+            }
+
+            // Default to first item if nothing selected
+            if (cmbLODMapSelector.SelectedItem == null && cmbLODMapSelector.Items.Count > 0)
+            {
+                cmbLODMapSelector.SelectedIndex = 0;
+            }
+        }
+
+        private void LoadLODThresholdsForMap(string mapId)
+        {
+            if (Config.MapLODThresholds.TryGetValue(mapId, out var lodConfig))
+            {
+                sldrLOD0Threshold.Value = lodConfig.LOD0Threshold;
+                sldrLOD1Threshold.Value = lodConfig.LOD1Threshold;
+            }
+            else
+            {
+                // Use default values
+                sldrLOD0Threshold.Value = 70;
+                sldrLOD1Threshold.Value = 85;
+            }
+        }
+
+        private void cmbLODMapSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (cmbLODMapSelector.SelectedItem is ComboBoxItem item && item.Tag is string mapId)
+            {
+                _currentLODMapId = mapId;
+                LoadLODThresholdsForMap(mapId);
+            }
+        }
+
+        private void LODSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (!_uiReady) return;
+
+            if (sender is TextValueSlider slider && slider.Tag is string tag)
+            {
+                var intValue = (int)e.NewValue;
+
+                // Ensure the map entry exists in the dictionary
+                if (!Config.MapLODThresholds.ContainsKey(_currentLODMapId))
+                {
+                    Config.MapLODThresholds[_currentLODMapId] = new Config.MapLODConfig();
+                }
+
+                var lodConfig = Config.MapLODThresholds[_currentLODMapId];
+
+                switch (tag)
+                {
+                    case "LOD0Threshold":
+                        lodConfig.LOD0Threshold = intValue;
+                        break;
+                    case "LOD1Threshold":
+                        lodConfig.LOD1Threshold = intValue;
                         break;
                 }
 

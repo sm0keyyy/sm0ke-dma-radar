@@ -557,7 +557,8 @@ namespace eft_dma_radar
                         needsRecalc |= _cachedPosition.X != _mapPanPosition.X || _cachedPosition.Y != _mapPanPosition.Y;
                         if (needsRecalc)
                         {
-                            mapParams = map.GetParameters(skCanvas, _zoom, ref _mapPanPosition, Config.LOD0Threshold, Config.LOD1Threshold);
+                            Config.GetMapLODThresholds(map.ID, out int lod0, out int lod1);
+                            mapParams = map.GetParameters(skCanvas, _zoom, ref _mapPanPosition, lod0, lod1);
                             _cachedMapParams = mapParams;
                             _cachedZoom = _zoom;
                             _cachedPosition = _mapPanPosition;
@@ -573,7 +574,8 @@ namespace eft_dma_radar
                         needsRecalc |= _cachedPosition.X != localPlayerMapPos.X || _cachedPosition.Y != localPlayerMapPos.Y;
                         if (needsRecalc)
                         {
-                            mapParams = map.GetParameters(skCanvas, _zoom, ref localPlayerMapPos, Config.LOD0Threshold, Config.LOD1Threshold);
+                            Config.GetMapLODThresholds(map.ID, out int lod0, out int lod1);
+                            mapParams = map.GetParameters(skCanvas, _zoom, ref localPlayerMapPos, lod0, lod1);
                             _cachedMapParams = mapParams;
                             _cachedZoom = _zoom;
                             _cachedPosition = localPlayerMapPos;
