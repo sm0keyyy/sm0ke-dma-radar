@@ -613,6 +613,13 @@ namespace eft_dma_radar.UI.Pages
             sldrZoomToMouse.ValueChanged += GeneralSlider_ValueChanged;
             sldrZoomStep.ValueChanged += GeneralSlider_ValueChanged;
 
+            // Player Dimming
+            chkPlayerDimming.Checked += GeneralCheckbox_Checked;
+            chkPlayerDimming.Unchecked += GeneralCheckbox_Checked;
+            sldrDimmingOpacity.ValueChanged += GeneralSlider_ValueChanged;
+            sldrPlayerDimmingRadius.ValueChanged += GeneralSlider_ValueChanged;
+            sldrLocalDimmingRadius.ValueChanged += GeneralSlider_ValueChanged;
+
             // Player Information
             cboPlayerType.SelectionChanged += cboPlayerType_SelectionChanged;
             chkHeightIndicator.Checked += GeneralCheckbox_Checked;
@@ -692,6 +699,12 @@ namespace eft_dma_radar.UI.Pages
             sldrUIScale.Value = Config.UIScale;
             sldrZoomToMouse.Value = Config.ZoomToMouse;
             sldrZoomStep.Value = Config.ZoomStep;
+
+            // Player Dimming
+            chkPlayerDimming.IsChecked = Config.PlayerDimmingEnabled;
+            sldrDimmingOpacity.Value = Config.PlayerDimmingOpacity;
+            sldrPlayerDimmingRadius.Value = Config.PlayerDimmingRadius;
+            sldrLocalDimmingRadius.Value = Config.LocalPlayerDimmingRadius;
 
             // Monitor
             txtGameHeight.Text = Config.MonitorHeight.ToString();
@@ -1498,6 +1511,9 @@ namespace eft_dma_radar.UI.Pages
                     case "ShowMapSetup":
                         ToggleMapSetup();
                         break;
+                    case "PlayerDimmingEnabled":
+                        Config.PlayerDimmingEnabled = value;
+                        break;
                     case "PlayerHeightIndicator":
                     case "ImportantIndicator":
                     case "ShowImportantPlayerLoot":
@@ -1652,6 +1668,15 @@ namespace eft_dma_radar.UI.Pages
                         break;
                     case "ZoomStep":
                         Config.ZoomStep = intValue;
+                        break;
+                    case "PlayerDimmingOpacity":
+                        Config.PlayerDimmingOpacity = floatValue;
+                        break;
+                    case "PlayerDimmingRadius":
+                        Config.PlayerDimmingRadius = floatValue;
+                        break;
+                    case "LocalPlayerDimmingRadius":
+                        Config.LocalPlayerDimmingRadius = floatValue;
                         break;
                     case "PlayerTypeRenderDistance":
                     case "PlayerTypeAimlineLength":

@@ -504,6 +504,30 @@ namespace eft_dma_radar.UI.Misc
         public bool PlayersOnTop { get; set; } = true;
 
         /// <summary>
+        /// Enable player dimming zones on radar
+        /// </summary>
+        [JsonPropertyName("playerDimmingEnabled")]
+        public bool PlayerDimmingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Opacity of player dimming zones (0.0-1.0)
+        /// </summary>
+        [JsonPropertyName("playerDimmingOpacity")]
+        public float PlayerDimmingOpacity { get; set; } = 0.5f;
+
+        /// <summary>
+        /// Radius of dimming zone around players (pixels)
+        /// </summary>
+        [JsonPropertyName("playerDimmingRadius")]
+        public float PlayerDimmingRadius { get; set; } = 15f;
+
+        /// <summary>
+        /// Radius of dimming zone around local player (pixels)
+        /// </summary>
+        [JsonPropertyName("localPlayerDimmingRadius")]
+        public float LocalPlayerDimmingRadius { get; set; } = 20f;
+
+        /// <summary>
         /// Minimum loot value (rubles) to display 'normal loot' on map.
         /// </summary>
         [JsonPropertyName("minLootValue")]

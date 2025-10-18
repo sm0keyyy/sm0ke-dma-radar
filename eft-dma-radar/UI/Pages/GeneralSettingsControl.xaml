@@ -166,11 +166,51 @@
                                                           hc:InfoElement.Placeholder="Aimview Widget, Debug Widget..."/>
 
                                     <!-- General Options -->
-                                    <hc:CheckComboBox x:Name="ccbGeneralOptions" Grid.Column="1" Margin="0,0,0,0"
+                                    <hc:CheckComboBox x:Name="ccbGeneralOptions" Grid.Column="1" Margin="0,0,0,8"
                                                           Style="{StaticResource CheckComboBoxExtend}"
                                                           hc:TitleElement.Title="Radar Options"
                                                           hc:TitleElement.TitlePlacement="Top"
                                                           hc:InfoElement.Placeholder="Connect Groups, Mask Names..."/>
+
+                                    <!-- Player Dimming Settings -->
+                                    <CheckBox x:Name="chkPlayerDimming" Content="Player Dimming Zones" Tag="PlayerDimmingEnabled"
+                                              Style="{StaticResource DynamicCheckBoxStyle}" Margin="0,0,5,8"/>
+
+                                    <!-- Opacity Slider -->
+                                    <Grid Margin="0,2,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Dimming Opacity" Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
+                                        <controls:TextValueSlider x:Name="sldrDimmingOpacity" Tag="PlayerDimmingOpacity"
+                                            Minimum="0.0" Maximum="1.0" SmallChange="0.05" TickFrequency="0.05"
+                                            IsSnapToTickEnabled="True" ContentStringFormat="{}{0:P0}" Grid.Column="1"/>
+                                    </Grid>
+
+                                    <!-- Player Radius Slider -->
+                                    <Grid Margin="0,2,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Player Radius" Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
+                                        <controls:TextValueSlider x:Name="sldrPlayerDimmingRadius" Tag="PlayerDimmingRadius"
+                                            Minimum="5" Maximum="50" SmallChange="1" TickFrequency="1"
+                                            IsSnapToTickEnabled="True" ContentStringFormat="{}{0:0}px" Grid.Column="1"/>
+                                    </Grid>
+
+                                    <!-- Local Player Radius Slider -->
+                                    <Grid Margin="0,2,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Local Radius" Style="{StaticResource LabelText}" VerticalAlignment="Center"/>
+                                        <controls:TextValueSlider x:Name="sldrLocalDimmingRadius" Tag="LocalPlayerDimmingRadius"
+                                            Minimum="5" Maximum="50" SmallChange="1" TickFrequency="1"
+                                            IsSnapToTickEnabled="True" ContentStringFormat="{}{0:0}px" Grid.Column="1"/>
+                                    </Grid>
                                 </hc:SimpleStackPanel>
                             </Expander>
 

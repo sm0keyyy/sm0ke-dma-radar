@@ -102,7 +102,10 @@ namespace eft_dma_shared.Common.Maps
                 .AspectFill(canvasSize);
 
             // Performance optimization: Calculate LOD level based on zoom
-            int lodLevel = zoom >= 150 ? 2 : (zoom >= 110 ? 1 : 0);
+            // Lower zoom % = more zoomed OUT = LESS detail needed (higher LOD level)
+            // Higher zoom % = more zoomed IN = MORE detail needed (lower LOD level)
+            // 100% = normal, <100% = zoomed out, >100% = zoomed in
+            int lodLevel = zoom <= 40 ? 2 : (zoom <= 70 ? 1 : 0);
 
             return new LoneMapParams
             {
@@ -125,7 +128,10 @@ namespace eft_dma_shared.Common.Maps
                 .AspectFill(control);
 
             // Performance optimization: Calculate LOD level based on zoom
-            int lodLevel = zoom >= 150 ? 2 : (zoom >= 110 ? 1 : 0);
+            // Lower zoom % = more zoomed OUT = LESS detail needed (higher LOD level)
+            // Higher zoom % = more zoomed IN = MORE detail needed (lower LOD level)
+            // 100% = normal, <100% = zoomed out, >100% = zoomed in
+            int lodLevel = zoom <= 40 ? 2 : (zoom <= 70 ? 1 : 0);
 
             return new LoneMapParams
             {

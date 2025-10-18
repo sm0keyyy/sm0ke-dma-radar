@@ -1313,6 +1313,11 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                 if (this == localPlayer || BattleMode)
                     return;
 
+                // Performance optimization: Skip text rendering at high zoom levels (LOD)
+                // LODLevel: 0 = full detail, 1 = medium (skip some text), 2 = minimal (icons only, no text)
+                if (mapParams.LODLevel >= 2)
+                    return; // Skip all text at extreme zoom
+
                 var height = Position.Y - localPlayer.Position.Y;
                 string nameText = null;
                 string distanceText = null;
@@ -1322,7 +1327,10 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                 var hasImportantItems = Type != PlayerType.Teammate &&
                     ((Gear?.Loot?.Any(x => x.IsImportant) ?? false) ||
                      (Config.QuestHelper.Enabled && (Gear?.HasQuestItems ?? false)));
-                
+
+                // LODLevel 1: Skip detailed loot lists, keep only essential info
+                bool skipDetailedInfo = mapParams.LODLevel >= 1;
+
                 if (typeSettings.ShowName)
                 {
                     var name = ErrorTimer.ElapsedMilliseconds > 100 ? "ERROR" : (Config.MaskNames && IsHuman ? "<Hidden>" : Name);
@@ -1332,7 +1340,7 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                 if (typeSettings.ShowDistance)
                     distanceText = $"{(int)Math.Round(dist)}";
 
-                if (typeSettings.ShowImportantLoot && IsAlive && Gear?.Loot != null && Type != PlayerType.Teammate)
+                if (!skipDetailedInfo && typeSettings.ShowImportantLoot && IsAlive && Gear?.Loot != null && Type != PlayerType.Teammate)
                 {
                     importantLootItems = Gear.Loot
                         .Where(item => item.IsImportant ||

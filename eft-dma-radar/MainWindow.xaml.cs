@@ -151,7 +151,7 @@ namespace eft_dma_radar
         /// </summary>
         public static bool Initialized = false;
 
-        private static List<PingEffect> _activePings = new();
+        private static List<PingEffect> _activePings = new(20); // Pre-allocated capacity for ping effects
 
         /// <summary>
         /// Main UI/Application Config.
@@ -486,6 +486,12 @@ namespace eft_dma_radar
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
 
+                    // Draw player dimming zones (after loot, before players)
+                    if (!Config.PlayersOnTop)
+                    {
+                        DrawPlayerDimmingZones(canvas, allPlayers, localPlayer, map, mapParams);
+                    }
+
                     if (!Config.PlayersOnTop)
                     {
                         // Performance optimized: use cached ordered players list
@@ -531,8 +537,18 @@ namespace eft_dma_radar
                         LootItem.ImportantLootSettings.Enabled ||
                         LootItem.QuestItemSettings.Enabled)))
                     {
-                        // Performance optimized: cache corpse settings check outside the loop
-                        var corpseEnabled = LootItem.CorpseSettings.Enabled;
+                        // Performance optimized: cache corpse settings check per-frame to avoid repeated property access
+                        bool corpseEnabled;
+                        if (_lootFilterCacheFrame == _currentFrame)
+                        {
+                            corpseEnabled = _lootCorpseSettingsEnabled;
+                        }
+                        else
+                        {
+                            corpseEnabled = LootItem.CorpseSettings.Enabled;
+                            _lootCorpseSettingsEnabled = corpseEnabled;
+                            _lootFilterCacheFrame = _currentFrame;
+                        }
                         var loot = Loot;
 
                         if (loot is not null)
@@ -690,6 +706,12 @@ namespace eft_dma_radar
                     if (Config.PlayersOnTop && Config.ConnectGroups)
                     {
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
+                    }
+
+                    // Draw player dimming zones (after loot, before players)
+                    if (Config.PlayersOnTop)
+                    {
+                        DrawPlayerDimmingZones(canvas, allPlayers, localPlayer, map, mapParams);
                     }
 
                     if (Config.PlayersOnTop)
@@ -889,6 +911,35 @@ namespace eft_dma_radar
                 {
                     ArrayPool<SKPoint>.Shared.Return(positions);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Draws semi-transparent dimming zones around players to make them stand out from loot.
+        /// Renders larger radius for local player to emphasize their position.
+        /// </summary>
+        private static void DrawPlayerDimmingZones(SKCanvas canvas, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
+        {
+            if (!Config.PlayerDimmingEnabled || allPlayers is null) return;
+
+            byte alpha = (byte)(Config.PlayerDimmingOpacity * 255);
+            using var dimmingPaint = new SKPaint
+            {
+                Color = SKColors.Black.WithAlpha(alpha),
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
+
+            foreach (var player in allPlayers)
+            {
+                if (player is null) continue;
+
+                var pos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                float radius = (player == localPlayer) ?
+                    Config.LocalPlayerDimmingRadius * UIScale :
+                    Config.PlayerDimmingRadius * UIScale;
+
+                canvas.DrawCircle(pos.X, pos.Y, radius, dimmingPaint);
             }
         }
 

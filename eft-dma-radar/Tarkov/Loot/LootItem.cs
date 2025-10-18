@@ -425,6 +425,32 @@ namespace eft_dma_radar.Tarkov.Loot
             MouseoverPosition = new Vector2(point.X, point.Y);
             SKPaints.ShapeOutline.StrokeWidth = 2f;
 
+            // Performance optimization: Skip text rendering at high zoom levels (LOD)
+            // LODLevel: 0 = full detail, 1 = medium (skip some text), 2 = minimal (icons only, no text)
+            if (mapParams.LODLevel >= 2)
+            {
+                // At extreme zoom, just draw the icon/marker without text
+                if (heightDiff > HEIGHT_INDICATOR_THRESHOLD)
+                {
+                    using var path = point.GetUpArrow(5);
+                    canvas.DrawPath(path, SKPaints.ShapeOutline);
+                    canvas.DrawPath(path, paints.Item1);
+                }
+                else if (heightDiff < -HEIGHT_INDICATOR_THRESHOLD)
+                {
+                    using var path = point.GetDownArrow(5);
+                    canvas.DrawPath(path, SKPaints.ShapeOutline);
+                    canvas.DrawPath(path, paints.Item1);
+                }
+                else
+                {
+                    var size = 5 * MainWindow.UIScale;
+                    canvas.DrawCircle(point, size, SKPaints.ShapeOutline);
+                    canvas.DrawCircle(point, size, paints.Item1);
+                }
+                return; // Skip all text at extreme zoom
+            }
+
             List<LootItem> importantLootItems = null;
             if (this is LootCorpse corpse && CorpseSettings.ShowImportantLoot)
             {
