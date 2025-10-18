@@ -207,19 +207,17 @@ namespace eft_dma_radar.Tarkov.Loot
                                                             {
                                                                 if (x6.TryGetResult<ulong>(13, out var itemBaseOrTemplate))
                                                                 {
-                                                                    var templateAddr = itemBaseOrTemplate;
-
-                                                                    // For containers, need one more hop to get template
+                                                                    // Process containers independently
                                                                     if (isContainer)
                                                                     {
+                                                                        // Container: itemOwner -> rootItem -> template (need extra hop)
                                                                         round7[i].AddEntry<ulong>(14, itemBaseOrTemplate + Offsets.LootItem.Template);
                                                                         round7[i].Callbacks += x7_container =>
                                                                         {
                                                                             if (x7_container.TryGetResult<ulong>(14, out var containerTemplate))
                                                                             {
-                                                                                templateAddr = containerTemplate;
                                                                                 // Round 8: Read BSG ID for container
-                                                                                round8[i].AddEntry<Types.MongoID>(15, templateAddr + Offsets.ItemTemplate._id);
+                                                                                round8[i].AddEntry<Types.MongoID>(15, containerTemplate + Offsets.ItemTemplate._id);
                                                                                 round8[i].Callbacks += x8_container =>
                                                                                 {
                                                                                     if (x8_container.TryGetResult<Types.MongoID>(15, out var bsgIdPtr))
@@ -243,8 +241,13 @@ namespace eft_dma_radar.Tarkov.Loot
                                                                             }
                                                                         };
                                                                     }
-                                                                    else if (isLooseLoot)
+
+                                                                    // Process loose loot independently (not else-if!)
+                                                                    if (isLooseLoot)
                                                                     {
+                                                                        // Loose loot: itemBaseOrTemplate is already the template address
+                                                                        var templateAddr = itemBaseOrTemplate;
+
                                                                         // Round 7: Read quest item flag and BSG ID for loose loot
                                                                         round7[i].AddEntry<bool>(16, templateAddr + Offsets.ItemTemplate.QuestItem);
                                                                         round7[i].AddEntry<Types.MongoID>(17, templateAddr + Offsets.ItemTemplate._id);
