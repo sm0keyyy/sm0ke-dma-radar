@@ -640,6 +640,9 @@ namespace eft_dma_radar
                 // Increment frame counter for caching optimizations
                 _currentFrame++;
 
+                // Update SKTextBlob cache for this frame (enables automatic eviction)
+                SKCanvasExtensions.BeginFrameTextCache();
+
                 SetFPS(inRaid, canvas);
                 // Check for map switch
                 var mapID = MapID;
@@ -652,6 +655,8 @@ namespace eft_dma_radar
                 {
                     LoneMapManager.LoadMap(mapID);
                     UpdateSwitches();
+                    // Clear SKTextBlob cache on map change to free memory
+                    SKCanvasExtensions.ClearTextCache();
                 }
 
                 canvas.Clear(InterfaceColorOptions.RadarBackgroundColor); // Clear canvas

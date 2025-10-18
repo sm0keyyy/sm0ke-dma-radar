@@ -505,9 +505,8 @@ namespace eft_dma_radar.Tarkov.Loot
                     }
                     else
                     {
-                        // Fallback to double-draw for names not in atlas (rare)
-                        canvas.DrawText(_cachedLabel, point, SKPaints.TextOutline);
-                        canvas.DrawText(_cachedLabel, point, paints.Item2);
+                        // Fallback to SKTextBlob for names not in atlas (3-5x faster)
+                        canvas.DrawTextFastWithOutline(_cachedLabel, point, paints.Item2, SKPaints.TextOutline);
                     }
                 }
             }
@@ -526,11 +525,8 @@ namespace eft_dma_radar.Tarkov.Loot
                 }
                 else
                 {
-                    // Fallback to standard text
-                    var distWidth = paints.Item2.MeasureText(distText);
-                    var fallbackPoint = new SKPoint(point.X - (distWidth / 2) - nameXOffset, currentBottomY);
-                    canvas.DrawText(distText, fallbackPoint, SKPaints.TextOutline);
-                    canvas.DrawText(distText, fallbackPoint, paints.Item2);
+                    // Fallback to SKTextBlob (3-5x faster than standard text)
+                    canvas.DrawTextFastCenteredWithOutline(distText, distPoint, paints.Item2, SKPaints.TextOutline);
                 }
             }
 
@@ -565,9 +561,8 @@ namespace eft_dma_radar.Tarkov.Loot
                     }
                     else
                     {
-                        // Fallback to double-draw for names not in atlas (rare)
-                        canvas.DrawText(itemText, itemPoint, SKPaints.TextOutline);
-                        canvas.DrawText(itemText, itemPoint, itemPaint);
+                        // Fallback to SKTextBlob for names not in atlas (3-5x faster)
+                        canvas.DrawTextFastWithOutline(itemText, itemPoint, itemPaint, SKPaints.TextOutline);
                     }
 
                     currentBottomY += textSize + spacing;

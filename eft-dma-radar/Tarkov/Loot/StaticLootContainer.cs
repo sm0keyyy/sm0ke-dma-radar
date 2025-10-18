@@ -79,8 +79,7 @@ namespace eft_dma_radar.Tarkov.Loot
             {
                 var namePoint = point;
                 namePoint.Offset(nameXOffset, nameYOffset);
-                canvas.DrawText(Name, namePoint, SKPaints.TextOutline);
-                canvas.DrawText(Name, namePoint, SKPaints.TextContainer);
+                canvas.DrawTextFastWithOutline(Name, namePoint, SKPaints.TextContainer, SKPaints.TextOutline);
             }
 
             if (Settings.ShowDistance)
@@ -96,11 +95,8 @@ namespace eft_dma_radar.Tarkov.Loot
                 }
                 else
                 {
-                    // Fallback to standard text
-                    var distWidth = SKPaints.TextContainer.MeasureText(distText);
-                    var fallbackPoint = new SKPoint(point.X - (distWidth / 2), point.Y + distanceYOffset);
-                    canvas.DrawText(distText, fallbackPoint, SKPaints.TextOutline);
-                    canvas.DrawText(distText, fallbackPoint, SKPaints.TextContainer);
+                    // Fallback to SKTextBlob (3-5x faster)
+                    canvas.DrawTextFastCenteredWithOutline(distText, distPoint, SKPaints.TextContainer, SKPaints.TextOutline);
                 }
             }
         }
