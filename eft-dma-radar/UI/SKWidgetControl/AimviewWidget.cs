@@ -361,8 +361,7 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.WhiteSmoke,
             StrokeWidth = 0.75f,
             Style = SKPaintStyle.Fill,
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.High
+            IsAntialias = true
         };
 
         internal static SKPaint TextESPWidgetLoot { get; } = new()
@@ -372,10 +371,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             IsStroke = false,
             TextSize = 9f,
             TextAlign = SKTextAlign.Center,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = CustomFonts.SKFontFamilyRegular,
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         #endregion

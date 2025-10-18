@@ -519,10 +519,8 @@ namespace eft_dma_radar.UI.ESP
             Color = SKColors.White,
             IsStroke = false,
             TextSize = 13,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _hotkeyActivePaint = new()
@@ -531,10 +529,8 @@ namespace eft_dma_radar.UI.ESP
             Color = SKColors.LightGreen,
             IsStroke = false,
             TextSize = 13,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _hotkeyInactivePaint = new()
@@ -543,10 +539,8 @@ namespace eft_dma_radar.UI.ESP
             Color = SKColors.Gray,
             IsStroke = false,
             TextSize = 13,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _hotkeyKeyPaint = new()
@@ -555,10 +549,8 @@ namespace eft_dma_radar.UI.ESP
             Color = SKColors.Yellow,
             IsStroke = false,
             TextSize = 13,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _hotkeyTypePaint = new()
@@ -567,10 +559,8 @@ namespace eft_dma_radar.UI.ESP
             Color = SKColors.Cyan,
             IsStroke = false,
             TextSize = 13,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
         #endregion
     }

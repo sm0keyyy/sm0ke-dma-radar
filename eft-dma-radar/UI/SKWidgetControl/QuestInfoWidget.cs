@@ -571,10 +571,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.White,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questKeyPaint = new()
@@ -583,10 +581,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.Yellow,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questSeparatorPaint = new()
@@ -595,10 +591,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.Gray,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questCompletedPaint = new()
@@ -607,10 +601,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.Green,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questIncompletePaint = new()
@@ -619,10 +611,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.White,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questNamePaint = new()
@@ -631,10 +621,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.LightBlue,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questItemPaint = new()
@@ -643,10 +631,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.Orange,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questOptionalPaint = new()
@@ -655,10 +641,8 @@ namespace eft_dma_radar.UI.SKWidgetControl
             Color = SKColors.Gray,
             IsStroke = false,
             TextSize = 10,
-            TextEncoding = SKTextEncoding.Utf8,
             IsAntialias = true,
-            Typeface = SKTypeface.FromFamilyName("Consolas"),
-            FilterQuality = SKFilterQuality.High
+            Typeface = CustomFonts.SKFontFamilyRegular
         };
 
         private static readonly SKPaint _questStrikethroughPaint = new()
