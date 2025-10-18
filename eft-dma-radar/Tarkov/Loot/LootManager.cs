@@ -1,4 +1,5 @@
 ﻿using System.Collections.Frozen;
+using System.IO;
 using eft_dma_shared.Common.Misc;
 using eft_dma_radar.Tarkov.EFTPlayer;
 
@@ -333,6 +334,13 @@ namespace eft_dma_radar.Tarkov.Loot
             }
 
             map.Execute(); // execute scatter read
+
+            // Debug: Save loot counts to desktop
+            var debugPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "loot_debug.txt");
+            var debugInfo = $"[{DateTime.Now:HH:mm:ss}] Total loot items: {loot.Count}, Containers: {containers.Count}\n";
+            debugInfo += $"  Loose loot breakdown - QuestItems: {loot.Count(x => x is QuestItem)}, Regular: {loot.Count(x => x is LootItem && x is not QuestItem && x is not LootCorpse)}, Corpses: {loot.Count(x => x is LootCorpse)}\n";
+            File.AppendAllText(debugPath, debugInfo);
+
             this.UnfilteredLoot = loot;
             this.StaticLootContainers = containers;
         }
