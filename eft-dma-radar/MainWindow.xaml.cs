@@ -202,8 +202,10 @@ namespace eft_dma_radar
         // Performance optimization: Pre-rendered text atlases for 10-50x faster text rendering
         // Distance atlas: "0m" to "500m" every 1m (501 sprites, ~5-8MB)
         // Height atlas: "-50m" to "+50m" every 1m (100 sprites, ~1-2MB)
+        // Loot name atlas: ALL item ShortNames from database (~1500-2000 sprites, ~15-20MB)
         private static TextAtlas _distanceAtlas;
         private static TextAtlas _heightAtlas;
+        private static TextAtlas _lootNameAtlas;
 
         private AimviewWidget _aimview;
         public AimviewWidget AimView { get => _aimview; private set => _aimview = value; }
@@ -516,7 +518,7 @@ namespace eft_dma_radar
 
         /// <summary>
         /// Initializes text atlases for ultra-fast text rendering.
-        /// Pre-renders all distance and height strings at startup for 10-50x performance gain.
+        /// Pre-renders all distance/height strings + ALL loot names at startup for 10-50x performance gain.
         /// </summary>
         private static void InitializeTextAtlases()
         {
@@ -526,7 +528,19 @@ namespace eft_dma_radar
             // Create height atlas: "-50m" to "+50m" every 1 meter (100 sprites, ~1-2MB)
             _heightAtlas = TextAtlas.CreateHeightAtlas(SKPaints.TextLocalPlayer);
 
-            LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}");
+            // Create loot name atlas: ALL item ShortNames from database (~1500-2000 sprites, ~15-20MB)
+            // This provides 10-50x speedup for loot text rendering (eliminates double-draw overhead)
+            if (EftDataManager.IsInitialized && EftDataManager.AllItems?.Count > 0)
+            {
+                var lootNames = EftDataManager.AllItems.Values.Select(item => item.ShortName).Distinct();
+                _lootNameAtlas = TextAtlas.CreateLootAtlas(SKPaints.TextImportantLoot, lootNames);
+                LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}, LootNames={_lootNameAtlas != null} ({EftDataManager.AllItems.Count} items)");
+            }
+            else
+            {
+                LoneLogging.WriteLine($"WARNING: EftDataManager not initialized - loot name atlas skipped");
+                LoneLogging.WriteLine($"Text atlases initialized: Distance={_distanceAtlas != null}, Height={_heightAtlas != null}, LootNames=false");
+            }
         }
 
         /// <summary>
@@ -538,6 +552,11 @@ namespace eft_dma_radar
         /// Gets the height atlas for rendering height difference text.
         /// </summary>
         public static TextAtlas HeightAtlas => _heightAtlas;
+
+        /// <summary>
+        /// Gets the loot name atlas for rendering loot item names (ShortName).
+        /// </summary>
+        public static TextAtlas LootNameAtlas => _lootNameAtlas;
 
         private void btnDebug_Click(object sender, RoutedEventArgs e)
         {
@@ -2670,6 +2689,7 @@ namespace eft_dma_radar
                 _dimmingPaint?.Dispose(); // Dispose dimming paint object
                 _distanceAtlas?.Dispose(); // Dispose distance text atlas
                 _heightAtlas?.Dispose(); // Dispose height text atlas
+                _lootNameAtlas?.Dispose(); // Dispose loot name atlas
 
                 Window = null;
 

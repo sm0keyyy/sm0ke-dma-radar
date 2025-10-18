@@ -53,19 +53,16 @@ namespace eft_dma_radar.Tarkov.Loot
             float nameXOffset = 7f * MainWindow.UIScale;
             float nameYOffset;
 
+            // Performance: Use fast arrow drawing (cached paths, no allocation)
             if (heightDiff > HEIGHT_INDICATOR_THRESHOLD)
             {
-                using var path = point.GetUpArrow(4);
-                canvas.DrawPath(path, SKPaints.ShapeOutline);
-                canvas.DrawPath(path, SKPaints.PaintContainerLoot);
+                canvas.DrawUpArrowFast(point, SKPaints.ShapeOutline, SKPaints.PaintContainerLoot, 4);
                 distanceYOffset = 18f * MainWindow.UIScale;
                 nameYOffset = 6f * MainWindow.UIScale;
             }
             else if (heightDiff < -HEIGHT_INDICATOR_THRESHOLD)
             {
-                using var path = point.GetDownArrow(4);
-                canvas.DrawPath(path, SKPaints.ShapeOutline);
-                canvas.DrawPath(path, SKPaints.PaintContainerLoot);
+                canvas.DrawDownArrowFast(point, SKPaints.ShapeOutline, SKPaints.PaintContainerLoot, 4);
                 distanceYOffset = 12f * MainWindow.UIScale;
                 nameYOffset = 1f * MainWindow.UIScale;
             }
