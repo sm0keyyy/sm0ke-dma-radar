@@ -582,6 +582,32 @@ namespace eft_dma_radar
 
         private void btnDebug_Click(object sender, RoutedEventArgs e)
         {
+            // AUTOMATED BENCHMARK: Start/stop automated LOD benchmark
+            if (AutomatedBenchmark.Instance.IsRunning)
+            {
+                AutomatedBenchmark.Instance.Cancel();
+                HandyControl.Controls.MessageBox.Show("Benchmark cancelled.", "Benchmark");
+                return;
+            }
+
+            var result = HandyControl.Controls.MessageBox.Show(
+                "Start automated benchmark?\n\n" +
+                "This will:\n" +
+                "- Test LOD 0, 1, and 2 sequentially\n" +
+                "- Take ~30 seconds total\n" +
+                "- Automatically control zoom\n" +
+                "- Export detailed results to Desktop\n\n" +
+                "Make sure you're in-raid with entities visible!",
+                "Automated Benchmark",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                AutomatedBenchmark.Instance.Start();
+                LoneLogging.WriteLine("Automated benchmark started! Check console for progress.");
+            }
+
             try
             {
                 // debug code
@@ -1213,6 +1239,27 @@ namespace eft_dma_radar
                 if (_showProfiler)
                 {
                     DrawProfilerOverlay(canvas);
+                }
+
+                // AUTOMATED BENCHMARK: Feed frame time and get target zoom if benchmark is running
+                if (inRaid && localPlayer is not null && AutomatedBenchmark.Instance.IsRunning)
+                {
+                    var frameTimeMs = PerformanceProfiler.Instance.LastFrameMs;
+                    var currentLOD = _cachedMapParams.LODLevel;
+                    var targetLOD = AutomatedBenchmark.Instance.Update(frameTimeMs, currentLOD);
+
+                    if (targetLOD.HasValue)
+                    {
+                        // Adjust zoom to reach target LOD
+                        // LOD 0 = close zoom (high), LOD 1 = medium, LOD 2 = far zoom (low)
+                        _zoom = targetLOD.Value switch
+                        {
+                            0 => 3,  // Close zoom for LOD 0
+                            1 => 2,  // Medium zoom for LOD 1
+                            2 => 1,  // Far zoom for LOD 2
+                            _ => _zoom
+                        };
+                    }
                 }
 
                 canvas.Flush(); // commit frame to GPU

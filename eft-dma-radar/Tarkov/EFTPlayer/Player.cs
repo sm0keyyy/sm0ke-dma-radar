@@ -1460,6 +1460,7 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
             var typeSettings = Config.PlayerTypeSettings.GetSettings(playerTypeKey);
             var showImportantIndicator = typeSettings.ImportantIndicator && hasImportantItems;
 
+            // BENCHMARK: Track player name rendering time
             if (!string.IsNullOrEmpty(nameText))
             {
                 // Performance optimization: Cache name text measurement
