@@ -87,7 +87,7 @@ namespace eft_dma_shared.Common.Maps
         /// <summary>
         /// Provides miscellaneous map parameters used throughout the entire render.
         /// </summary>
-        public LoneMapParams GetParameters(SKGLElement element, int zoom, ref Vector2 localPlayerMapPos)
+        public LoneMapParams GetParameters(SKGLElement element, int zoom, ref Vector2 localPlayerMapPos, int lod0Threshold = 70, int lod1Threshold = 85)
         {
             var zoomWidth = _layers[0].Image.Width * (.01f * zoom);
             var zoomHeight = _layers[0].Image.Height * (.01f * zoom);
@@ -105,7 +105,7 @@ namespace eft_dma_shared.Common.Maps
             // Lower zoom value = more zoomed IN = MORE detail needed (LOD 0)
             // Higher zoom value = more zoomed OUT = LESS detail needed (LOD 1/2)
             // Zoom range: 1-100 (1=closest, 100=farthest)
-            int lodLevel = zoom >= 85 ? 2 : (zoom >= 70 ? 1 : 0);
+            int lodLevel = zoom >= lod1Threshold ? 2 : (zoom >= lod0Threshold ? 1 : 0);
 
             return new LoneMapParams
             {
@@ -116,7 +116,7 @@ namespace eft_dma_shared.Common.Maps
                 LODLevel = lodLevel
             };
         }
-        public LoneMapParams GetParametersE(SKSize control, float zoom, ref Vector2 localPlayerMapPos)
+        public LoneMapParams GetParametersE(SKSize control, float zoom, ref Vector2 localPlayerMapPos, int lod0Threshold = 70, int lod1Threshold = 85)
         {
             var zoomWidth = _layers[0].Image.Width * (.01f * zoom);
             var zoomHeight = _layers[0].Image.Height * (.01f * zoom);
@@ -131,7 +131,7 @@ namespace eft_dma_shared.Common.Maps
             // Lower zoom value = more zoomed IN = MORE detail needed (LOD 0)
             // Higher zoom value = more zoomed OUT = LESS detail needed (LOD 1/2)
             // Zoom range: 1-100 (1=closest, 100=farthest)
-            int lodLevel = zoom >= 85 ? 2 : (zoom >= 70 ? 1 : 0);
+            int lodLevel = zoom >= lod1Threshold ? 2 : (zoom >= lod0Threshold ? 1 : 0);
 
             return new LoneMapParams
             {

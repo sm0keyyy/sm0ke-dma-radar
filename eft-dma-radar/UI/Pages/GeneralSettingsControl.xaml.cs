@@ -612,6 +612,8 @@ namespace eft_dma_radar.UI.Pages
             sldrUIScale.ValueChanged += GeneralSlider_ValueChanged;
             sldrZoomToMouse.ValueChanged += GeneralSlider_ValueChanged;
             sldrZoomStep.ValueChanged += GeneralSlider_ValueChanged;
+            sldrLOD0Threshold.ValueChanged += GeneralSlider_ValueChanged;
+            sldrLOD1Threshold.ValueChanged += GeneralSlider_ValueChanged;
 
             // Player Dimming
             chkPlayerDimming.Checked += GeneralCheckbox_Checked;
@@ -701,6 +703,8 @@ namespace eft_dma_radar.UI.Pages
             sldrUIScale.Value = Config.UIScale;
             sldrZoomToMouse.Value = Config.ZoomToMouse;
             sldrZoomStep.Value = Config.ZoomStep;
+            sldrLOD0Threshold.Value = Config.LOD0Threshold;
+            sldrLOD1Threshold.Value = Config.LOD1Threshold;
 
             // Player Dimming
             chkPlayerDimming.IsChecked = Config.PlayerDimmingEnabled;
@@ -1714,6 +1718,12 @@ namespace eft_dma_radar.UI.Pages
                         break;
                     case "ZoomStep":
                         Config.ZoomStep = intValue;
+                        break;
+                    case "LOD0Threshold":
+                        Config.LOD0Threshold = intValue;
+                        break;
+                    case "LOD1Threshold":
+                        Config.LOD1Threshold = intValue;
                         break;
                     case "PlayerDimmingOpacity":
                         Config.PlayerDimmingOpacity = floatValue;

@@ -413,6 +413,18 @@ namespace eft_dma_radar.UI.Misc
         public int ZoomStep{ get; set; } = 5;
 
         /// <summary>
+        /// Zoom percentage threshold for LOD 0->1 transition (1-100, default: 70)
+        /// </summary>
+        [JsonPropertyName("lod0Threshold")]
+        public int LOD0Threshold { get; set; } = 70;
+
+        /// <summary>
+        /// Zoom percentage threshold for LOD 1->2 transition (1-100, default: 85)
+        /// </summary>
+        [JsonPropertyName("lod1Threshold")]
+        public int LOD1Threshold { get; set; } = 85;
+
+        /// <summary>
         /// Enable 'Battle Mode', hides all non-essential information.
         /// </summary>
         [JsonPropertyName("battleMode")]

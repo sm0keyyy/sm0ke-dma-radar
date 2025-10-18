@@ -1574,9 +1574,9 @@ namespace eft_dma_radar.UI.ESP
             LoneMapParams mapParams;
 
             if (_radarFreeMode)
-                mapParams = map.GetParametersE(radarSize, _radarZoom, ref _radarPanPosition);
+                mapParams = map.GetParametersE(radarSize, _radarZoom, ref _radarPanPosition, Config.LOD0Threshold, Config.LOD1Threshold);
             else
-                mapParams = map.GetParametersE(radarSize, _radarZoom, ref playerMapPos);
+                mapParams = map.GetParametersE(radarSize, _radarZoom, ref playerMapPos, Config.LOD0Threshold, Config.LOD1Threshold);
 
             var radarBounds = new SKRect(
                 _radarRect.Left,

@@ -32,8 +32,10 @@ namespace eft_dma_shared.Common.Maps
         /// <param name="control"></param>
         /// <param name="zoom"></param>
         /// <param name="localPlayerMapPos"></param>
+        /// <param name="lod0Threshold"></param>
+        /// <param name="lod1Threshold"></param>
         /// <returns></returns>
-        LoneMapParams GetParameters(SKGLElement element, int zoom, ref Vector2 localPlayerMapPos);
-        LoneMapParams GetParametersE(SKSize control, float zoom, ref Vector2 localPlayerMapPos);
+        LoneMapParams GetParameters(SKGLElement element, int zoom, ref Vector2 localPlayerMapPos, int lod0Threshold = 70, int lod1Threshold = 85);
+        LoneMapParams GetParametersE(SKSize control, float zoom, ref Vector2 localPlayerMapPos, int lod0Threshold = 70, int lod1Threshold = 85);
     }
 }
