@@ -89,7 +89,7 @@ namespace eft_dma_radar.Tarkov.Loot
                 // Update filter cache before processing loot
                 UpdateFilterCache();
 
-                GetLoot_ReducedRounds(); // OPTIMIZED: Reduced from 8 to 6 scatter rounds (25% fewer DMA round-trips)
+                GetLoot_Original(); // REVERTED: 6-round optimization made it 3x slower (speculative reads caused invalid memory access)
                 RefreshFilter();
 
                 LootItem.CleanupNotificationHistory(UnfilteredLoot);
