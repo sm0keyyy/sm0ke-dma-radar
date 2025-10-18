@@ -640,6 +640,134 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
         }
 
         /// <summary>
+        /// Executed on each Fast Loop (Hands Manager updates).
+        /// Uses multi-round scatter reads for optimal performance with pointer chasing.
+        /// </summary>
+        /// <param name="round1">First scatter read round.</param>
+        /// <param name="round2">Second scatter read round.</param>
+        /// <param name="round3">Third scatter read round.</param>
+        /// <param name="round4">Fourth scatter read round.</param>
+        public virtual void OnFastLoop(ScatterReadIndex round1, ScatterReadIndex round2, ScatterReadIndex round3, ScatterReadIndex round4)
+        {
+            try
+            {
+                if (Hands is null)
+                    return;
+
+                // Round 1: Read HandsController pointer
+                var isClient = this is ClientPlayer;
+                round1.AddEntry<ulong>(0, this.HandsControllerAddr);
+
+                round1.Callbacks += x1 =>
+                {
+                    if (!x1.TryGetResult<ulong>(0, out var handsController) || handsController == 0)
+                        return;
+
+                    // Round 2: Read ItemBase pointer
+                    var itemOffset = isClient ? Offsets.ItemHandsController.Item : Offsets.ObservedHandsController.ItemInHands;
+                    round2.AddEntry<ulong>(1, handsController + itemOffset);
+
+                    round2.Callbacks += x2 =>
+                    {
+                        if (!x2.TryGetResult<ulong>(1, out var itemBase) || itemBase == 0)
+                            return;
+
+                        // Check if item changed
+                        if (itemBase != Hands._cached)
+                        {
+                            // Round 3: Read item template and chambers (for weapons)
+                            round3.AddEntry<ulong>(2, itemBase + Offsets.LootItem.Template);
+                            round3.AddEntry<ulong>(3, itemBase + Offsets.LootItemWeapon.Chambers); // Pre-read chambers for weapon check
+
+                            round3.Callbacks += x3 =>
+                            {
+                                if (!x3.TryGetResult<ulong>(2, out var itemTemplate) || itemTemplate == 0)
+                                    return;
+
+                                // Round 4: Read item ID and ammo info
+                                round4.AddEntry<Types.MongoID>(4, itemTemplate + Offsets.ItemTemplate._id);
+                                round4.AddEntry<ulong>(5, itemTemplate + Offsets.ItemTemplate.ShortName); // For fallback if not in DB
+
+                                round4.Callbacks += x4 =>
+                                {
+                                    // Process item ID
+                                    if (x4.TryGetResult<Types.MongoID>(4, out var itemIDPtr))
+                                    {
+                                        var itemID = Memory.ReadUnityString(itemIDPtr.StringID);
+                                        if (EftDataManager.AllItems.TryGetValue(itemID, out var heldItem))
+                                        {
+                                            Hands._cachedItem = new LootItem(heldItem);
+                                        }
+                                        else // Item doesn't exist in DB, use name from game memory
+                                        {
+                                            if (x4.TryGetResult<ulong>(5, out var itemNamePtr) && itemNamePtr != 0)
+                                            {
+                                                var itemName = Memory.ReadUnityString(itemNamePtr)?.Trim();
+                                                if (string.IsNullOrEmpty(itemName))
+                                                    itemName = "Item";
+
+                                                // Handle special cases
+                                                if (itemName.Contains("nsv_utes"))
+                                                    itemName = "NSV Utyos";
+                                                else if (itemName.Contains("ags30_30"))
+                                                {
+                                                    itemName = "AGS-30";
+                                                    Hands._ammo = "VOG-30";
+                                                }
+                                                else if (itemName.Contains("izhmash_rpk16"))
+                                                    itemName = "RPK-16";
+
+                                                Hands._cachedItem = new("NULL", itemName);
+                                            }
+                                        }
+                                        Hands._cached = itemBase;
+                                    }
+
+                                    // Process ammo if weapon
+                                    if (Hands._cachedItem?.IsWeapon ?? false)
+                                    {
+                                        if (x3.TryGetResult<ulong>(3, out var chambers) && chambers != 0)
+                                        {
+                                            try
+                                            {
+                                                var slotPtr = Memory.ReadPtr(chambers + MemList<byte>.ArrStartOffset);
+                                                var slotItem = Memory.ReadPtr(slotPtr + Offsets.Slot.ContainedItem);
+                                                var ammoTemplate = Memory.ReadPtr(slotItem + Offsets.LootItem.Template);
+                                                var ammoIDPtr = Memory.ReadValue<Types.MongoID>(ammoTemplate + Offsets.ItemTemplate._id);
+                                                var ammoID = Memory.ReadUnityString(ammoIDPtr.StringID);
+
+                                                if (EftDataManager.AllItems.TryGetValue(ammoID, out var ammo))
+                                                    Hands._ammo = ammo?.ShortName;
+                                            }
+                                            catch // Gun doesn't have a chamber, try magazine
+                                            {
+                                                try
+                                                {
+                                                    var ammoTemplate_ = FirearmManager.MagazineManager.GetAmmoTemplateFromWeapon(itemBase);
+                                                    var ammoIdPtr = Memory.ReadValue<Types.MongoID>(ammoTemplate_ + Offsets.ItemTemplate._id);
+                                                    var ammoId = Memory.ReadUnityString(ammoIdPtr.StringID);
+
+                                                    if (EftDataManager.AllItems.TryGetValue(ammoId, out var ammo))
+                                                        Hands._ammo = ammo?.ShortName;
+                                                }
+                                                catch { }
+                                            }
+                                        }
+                                    }
+                                };
+                            };
+                        }
+                    };
+                };
+            }
+            catch
+            {
+                if (Hands is not null)
+                    Hands._cached = 0x0;
+            }
+        }
+
+        /// <summary>
         /// Executed on each Transform Validation Loop.
         /// </summary>
         /// <param name="round1">Index (round 1)</param>

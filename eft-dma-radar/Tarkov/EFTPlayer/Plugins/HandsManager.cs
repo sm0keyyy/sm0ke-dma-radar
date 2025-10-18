@@ -11,9 +11,9 @@ namespace eft_dma_radar.Tarkov.EFTPlayer.Plugins
     {
         private readonly Player _parent;
 
-        private string _ammo;
-        private LootItem _cachedItem;
-        private ulong _cached = 0x0;
+        internal string _ammo;
+        internal LootItem _cachedItem;
+        internal ulong _cached = 0x0;
         /// <summary>
         /// Item in hands currently (Short Name).
         /// Also contains ammo/thermal info.
