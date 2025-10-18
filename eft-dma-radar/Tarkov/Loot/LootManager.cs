@@ -117,6 +117,10 @@ namespace eft_dma_radar.Tarkov.Loot
             var round2 = map.AddRound();
             var round3 = map.AddRound();
             var round4 = map.AddRound();
+            var round5 = map.AddRound(); // Item/Container base pointers
+            var round6 = map.AddRound(); // Item templates and metadata
+            var round7 = map.AddRound(); // BSG IDs and flags
+            var round8 = map.AddRound(); // BSG ID strings
             for (int ix = 0; ix < lootList.Count; ix++)
             {
                 var i = ix;
@@ -153,23 +157,172 @@ namespace eft_dma_radar.Tarkov.Loot
                                             components + 0x8); // T1
                                         round4[i].Callbacks += x4 =>
                                         {
-                                            if (x4.TryGetResult<UTF8String>(8, out var className) &&
-                                                x4.TryGetResult<UTF8String>(9, out var objectName) &&
+                                            if (x4.TryGetResult<UTF8String>(8, out var classNameUtf8) &&
+                                                x4.TryGetResult<UTF8String>(9, out var objectNameUtf8) &&
                                                 x4.TryGetResult<MemPointer>(10, out var transformInternal))
                                             {
-                                                map.CompletionCallbacks += () => // Store this as callback, let scatter reads all finish first (benchmarked faster)
+                                                // Convert UTF8String to string for comparisons
+                                                var className = classNameUtf8.ToString();
+                                                var objectName = objectNameUtf8.ToString();
+
+                                                // Determine loot type early to batch the right reads
+                                                var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
+                                                var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
+                                                var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
+                                                var skipScript = objectName.Contains("script", StringComparison.OrdinalIgnoreCase);
+
+                                                // Round 5: Read base item/container pointers
+                                                if (!skipScript && (isLooseLoot || isContainer))
                                                 {
-                                                    _ct.ThrowIfCancellationRequested();
-                                                    try
+                                                    if (isLooseLoot)
                                                     {
-                                                        ProcessLootIndex(loot, containers, deadPlayers,
-                                                            interactiveClass, objectName,
-                                                            transformInternal, className, gameObject);
+                                                        // Loose loot: read Item pointer
+                                                        round5[i].AddEntry<ulong>(11, interactiveClass + Offsets.InteractiveLootItem.Item);
                                                     }
-                                                    catch
+                                                    else if (isContainer && !objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase))
                                                     {
+                                                        // Container: read ItemOwner pointer
+                                                        round5[i].AddEntry<ulong>(11, interactiveClass + Offsets.LootableContainer.ItemOwner);
+                                                        // Also read InteractingPlayer for opened status
+                                                        round5[i].AddEntry<ulong>(12, interactiveClass + Offsets.LootableContainer.InteractingPlayer);
                                                     }
-                                                };
+
+                                                    round5[i].Callbacks += x5 =>
+                                                    {
+                                                        if (x5.TryGetResult<ulong>(11, out var itemOrOwner) && itemOrOwner != 0)
+                                                        {
+                                                            // Round 6: Read item template pointer
+                                                            if (isLooseLoot)
+                                                            {
+                                                                // Loose loot: item -> template
+                                                                round6[i].AddEntry<ulong>(13, itemOrOwner + Offsets.LootItem.Template);
+                                                            }
+                                                            else if (isContainer)
+                                                            {
+                                                                // Container: itemOwner -> rootItem -> template
+                                                                round6[i].AddEntry<ulong>(13, itemOrOwner + Offsets.LootableContainerItemOwner.RootItem);
+                                                            }
+
+                                                            round6[i].Callbacks += x6 =>
+                                                            {
+                                                                if (x6.TryGetResult<ulong>(13, out var itemBaseOrTemplate))
+                                                                {
+                                                                    var templateAddr = itemBaseOrTemplate;
+
+                                                                    // For containers, need one more hop to get template
+                                                                    if (isContainer)
+                                                                    {
+                                                                        round7[i].AddEntry<ulong>(14, itemBaseOrTemplate + Offsets.LootItem.Template);
+                                                                        round7[i].Callbacks += x7_container =>
+                                                                        {
+                                                                            if (x7_container.TryGetResult<ulong>(14, out var containerTemplate))
+                                                                            {
+                                                                                templateAddr = containerTemplate;
+                                                                                // Round 8: Read BSG ID for container
+                                                                                round8[i].AddEntry<Types.MongoID>(15, templateAddr + Offsets.ItemTemplate._id);
+                                                                                round8[i].Callbacks += x8_container =>
+                                                                                {
+                                                                                    if (x8_container.TryGetResult<Types.MongoID>(15, out var bsgIdPtr))
+                                                                                    {
+                                                                                        var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+                                                                                        x5.TryGetResult<ulong>(12, out var interactingPlayer);
+                                                                                        bool containerOpened = interactingPlayer != 0;
+
+                                                                                        map.CompletionCallbacks += () =>
+                                                                                        {
+                                                                                            var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+                                                                                            containers.Add(new StaticLootContainer(bsgId, containerOpened)
+                                                                                            {
+                                                                                                Position = pos,
+                                                                                                InteractiveClass = interactiveClass,
+                                                                                                GameObject = gameObject
+                                                                                            });
+                                                                                        };
+                                                                                    }
+                                                                                };
+                                                                            }
+                                                                        };
+                                                                    }
+                                                                    else if (isLooseLoot)
+                                                                    {
+                                                                        // Round 7: Read quest item flag and BSG ID for loose loot
+                                                                        round7[i].AddEntry<bool>(16, templateAddr + Offsets.ItemTemplate.QuestItem);
+                                                                        round7[i].AddEntry<Types.MongoID>(17, templateAddr + Offsets.ItemTemplate._id);
+
+                                                                        round7[i].Callbacks += x7_loot =>
+                                                                        {
+                                                                            if (x7_loot.TryGetResult<bool>(16, out var isQuestItem) &&
+                                                                                x7_loot.TryGetResult<Types.MongoID>(17, out var bsgIdPtr))
+                                                                            {
+                                                                                var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+
+                                                                                map.CompletionCallbacks += () =>
+                                                                                {
+                                                                                    var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+
+                                                                                    if (isQuestItem)
+                                                                                    {
+                                                                                        QuestItem questItem;
+                                                                                        if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                                        {
+                                                                                            questItem = new QuestItem(entry)
+                                                                                            {
+                                                                                                Position = pos,
+                                                                                                InteractiveClass = interactiveClass
+                                                                                            };
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            // Fallback: read short name synchronously (rare case)
+                                                                                            var shortNamePtr = Memory.ReadPtr(templateAddr + Offsets.ItemTemplate.ShortName);
+                                                                                            var shortName = Memory.ReadUnityString(shortNamePtr)?.Trim();
+                                                                                            if (string.IsNullOrEmpty(shortName))
+                                                                                                shortName = "Item";
+                                                                                            questItem = new QuestItem(bsgId, $"Q_{shortName}")
+                                                                                            {
+                                                                                                Position = pos,
+                                                                                                InteractiveClass = interactiveClass
+                                                                                            };
+                                                                                        }
+                                                                                        loot.Add(questItem);
+                                                                                    }
+                                                                                    else // Regular Loose Loot Item
+                                                                                    {
+                                                                                        if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                                        {
+                                                                                            loot.Add(new LootItem(entry)
+                                                                                            {
+                                                                                                Position = pos,
+                                                                                                InteractiveClass = interactiveClass
+                                                                                            });
+                                                                                        }
+                                                                                    }
+                                                                                };
+                                                                            }
+                                                                        };
+                                                                    }
+                                                                }
+                                                            };
+                                                        }
+                                                    };
+                                                }
+                                                else
+                                                {
+                                                    // Corpses and airdrops: process synchronously (no item reads needed)
+                                                    map.CompletionCallbacks += () =>
+                                                    {
+                                                        _ct.ThrowIfCancellationRequested();
+                                                        try
+                                                        {
+                                                            ProcessLootIndex(loot, containers, deadPlayers,
+                                                                interactiveClass, objectName,
+                                                                transformInternal, className, gameObject);
+                                                        }
+                                                        catch
+                                                        {
+                                                        }
+                                                    };
+                                                }
                                             }
                                         };
                                     }
@@ -186,116 +339,43 @@ namespace eft_dma_radar.Tarkov.Loot
         }
 
         /// <summary>
-        /// Process a single loot index.
+        /// Process a single loot index for corpses and airdrops only.
+        /// Loose loot and containers are now handled in scatter read chain for performance.
         /// </summary>
         private static void ProcessLootIndex(List<LootItem> loot, List<StaticLootContainer> containers, IReadOnlyList<Player> deadPlayers,
             ulong interactiveClass, string objectName, ulong transformInternal, string className, ulong gameObject)
         {
             var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
-            var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
             var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
-            if (objectName.Contains("script", StringComparison.OrdinalIgnoreCase))
-            {
-                //skip these. These are scripts which I think are things like landmines but not sure
-            }
-            else
-            {
-                // Get Item Position
-                var pos = new UnityTransform(transformInternal, true).UpdatePosition();
-                if (isCorpse)
-                {
-                    var player = deadPlayers?.FirstOrDefault(x => x.Corpse == interactiveClass);
-                    bool isPMC = player?.IsPmc ?? true;
-                    var corpseLoot = new List<LootItem>();
-                    GetCorpseLoot(interactiveClass, corpseLoot, isPMC);
-                    var corpse = new LootCorpse(corpseLoot)
-                    {
-                        Position = pos,
-                        PlayerObject = player
-                    };
-                    loot.Add(corpse);
-                    if (player is not null)
-                    {
-                        player.LootObject = corpse;
-                    }
-                }
-                else if (isContainer)
-                {
-                    try
-                    {
-                        if (objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase))
-                        {
-                            loot.Add(new LootAirdrop()
-                            {
-                                Position = pos,
-                                InteractiveClass = interactiveClass
-                            });
-                        }
-                        else
-                        {
-                            var itemOwner = Memory.ReadPtr(interactiveClass + Offsets.LootableContainer.ItemOwner);
-                            var ownerItemBase = Memory.ReadPtr(itemOwner + Offsets.LootableContainerItemOwner.RootItem);
-                            var ownerItemTemplate = Memory.ReadPtr(ownerItemBase + Offsets.LootItem.Template);
-                            var ownerItemBsgIdPtr = Memory.ReadValue<Types.MongoID>(ownerItemTemplate + Offsets.ItemTemplate._id);
-                            var ownerItemBsgId = Memory.ReadUnityString(ownerItemBsgIdPtr.StringID);
-                            bool containerOpened = Memory.ReadValue<ulong>(interactiveClass + Offsets.LootableContainer.InteractingPlayer) != 0;
-                            containers.Add(new StaticLootContainer(ownerItemBsgId, containerOpened)
-                            {
-                                Position = pos,
-                                InteractiveClass = interactiveClass,
-                                GameObject = gameObject
-                            });
-                        }
-                    }
-                    catch { }
-                }
-                else if (isLooseLoot)
-                {
-                    var item = Memory.ReadPtr(interactiveClass +
-                                              Offsets.InteractiveLootItem.Item); //EFT.InventoryLogic.Item
-                    var itemTemplate = Memory.ReadPtr(item + Offsets.LootItem.Template); //EFT.InventoryLogic.ItemTemplate
-                    var isQuestItem = Memory.ReadValue<bool>(itemTemplate + Offsets.ItemTemplate.QuestItem);
 
-                    //If NOT a quest item. Quest items are like the quest related things you need to find like the pocket watch or Jaeger's Letter etc. We want to ignore these quest items.
-                    var BSGIdPtr = Memory.ReadValue<Types.MongoID>(itemTemplate + Offsets.ItemTemplate._id);
-                    var id = Memory.ReadUnityString(BSGIdPtr.StringID);
-                    if (isQuestItem)
-                    {
-                        QuestItem questItem;
-                        if (EftDataManager.AllItems.TryGetValue(id, out var entry))
-                        {
-                            questItem = new QuestItem(entry)
-                            {
-                                Position = pos,
-                                InteractiveClass = interactiveClass
-                            };
-                        }
-                        else
-                        {
-                            var shortNamePtr = Memory.ReadPtr(itemTemplate + Offsets.ItemTemplate.ShortName);
-                            var shortName = Memory.ReadUnityString(shortNamePtr)?.Trim();
-                            if (string.IsNullOrEmpty(shortName))
-                                shortName = "Item";
-                            questItem = new QuestItem(id, $"Q_{shortName}")
-                            {
-                                Position = pos,
-                                InteractiveClass = interactiveClass
-                            };
-                        }
-                        loot.Add(questItem);
-                    }
-                    else // Regular Loose Loot Item
-                    {
-                        if (EftDataManager.AllItems.TryGetValue(id, out var entry))
-                        {
-                            loot.Add(new LootItem(entry)
-                            {
-                                Position = pos,
-                                InteractiveClass = interactiveClass
-                            });
-                        }
-                    }
+            // Get Item Position
+            var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+
+            if (isCorpse)
+            {
+                var player = deadPlayers?.FirstOrDefault(x => x.Corpse == interactiveClass);
+                bool isPMC = player?.IsPmc ?? true;
+                var corpseLoot = new List<LootItem>();
+                GetCorpseLoot(interactiveClass, corpseLoot, isPMC);
+                var corpse = new LootCorpse(corpseLoot)
+                {
+                    Position = pos,
+                    PlayerObject = player
+                };
+                loot.Add(corpse);
+                if (player is not null)
+                {
+                    player.LootObject = corpse;
                 }
+            }
+            else if (isContainer && objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase))
+            {
+                // Airdrops only (regular containers handled in scatter read chain)
+                loot.Add(new LootAirdrop()
+                {
+                    Position = pos,
+                    InteractiveClass = interactiveClass
+                });
             }
         }
         private static readonly FrozenSet<string> _skipSlots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
