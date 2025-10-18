@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Numerics;
 using eft_dma_radar.Tarkov;
 using eft_dma_radar.Tarkov.API;
 using eft_dma_radar.Tarkov.EFTPlayer;
@@ -1317,7 +1318,7 @@ namespace eft_dma_radar
         /// <summary>
         /// Calculates the opacity factor for an entity based on its proximity to players.
         /// Entities close to players are faded out to reduce visual clutter and make players stand out.
-        /// Performance optimized: returns early if dimming is disabled.
+        /// Performance optimized: returns early if dimming is disabled, uses SIMD vectorization for batch distance calculations.
         /// </summary>
         /// <param name="entityPos">Position of the entity in world coordinates</param>
         /// <param name="allPlayers">All players in the raid</param>
@@ -1350,31 +1351,96 @@ namespace eft_dma_radar
 
             var entityZoomedPos = entityMapPos.ToZoomedPos(mapParams);
 
-            foreach (var player in nearbyPlayers)
+            // SIMD OPTIMIZATION: Use batch processing only when beneficial (4+ players)
+            // For small counts, scalar operations are faster due to lower setup overhead
+            var nearbyPlayersList = nearbyPlayers as List<Player> ?? nearbyPlayers.ToList();
+            int playerCount = nearbyPlayersList.Count;
+            if (playerCount == 0)
+                return 1.0f;
+
+            // Use scalar path for small player counts (lower overhead than SIMD setup)
+            if (playerCount < 4)
             {
-                if (player is null) continue;
-
-                var playerMapPos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
-                float radius = (player == localPlayer) ?
-                    Config.LocalPlayerDimmingRadius * UIScale :
-                    Config.PlayerDimmingRadius * UIScale;
-
-                // Calculate squared distance (avoid sqrt for performance)
-                float dx = entityZoomedPos.X - playerMapPos.X;
-                float dy = entityZoomedPos.Y - playerMapPos.Y;
-                float distSq = dx * dx + dy * dy;
-                float radiusSq = radius * radius;
-
-                // Early exit if we're inside dimming zone
-                if (distSq <= radiusSq)
+                foreach (var player in nearbyPlayersList)
                 {
-                    // Inside dimming zone: apply configured opacity reduction
-                    return 1.0f - Config.PlayerDimmingOpacity;
+                    if (player is null) continue;
+
+                    var playerMapPos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                    float radius = (player == localPlayer) ?
+                        Config.LocalPlayerDimmingRadius * UIScale :
+                        Config.PlayerDimmingRadius * UIScale;
+
+                    // Calculate squared distance (avoid sqrt for performance)
+                    float distSq = VectorMath.DistanceSquared(
+                        entityZoomedPos.X, entityZoomedPos.Y,
+                        playerMapPos.X, playerMapPos.Y
+                    );
+
+                    // Early exit if we're inside dimming zone
+                    if (distSq <= radius * radius)
+                    {
+                        return 1.0f - Config.PlayerDimmingOpacity;
+                    }
                 }
+                return 1.0f;
             }
 
-            // Outside all dimming zones: full opacity
-            return 1.0f;
+            // SIMD batch processing path for 4+ players (4-8 distances per cycle on AVX2)
+            // Use ArrayPool to avoid allocations - minimal overhead for larger batches
+            var playerPositions = ArrayPool<System.Numerics.Vector2>.Shared.Rent(playerCount);
+            var radiiSquared = ArrayPool<float>.Shared.Rent(playerCount);
+            var distancesSquared = ArrayPool<float>.Shared.Rent(playerCount);
+
+            try
+            {
+                // Prepare data for batch processing
+                int i = 0;
+                foreach (var player in nearbyPlayersList)
+                {
+                    if (player is null) continue;
+
+                    var playerMapPos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                    playerPositions[i] = new System.Numerics.Vector2(playerMapPos.X, playerMapPos.Y);
+
+                    float radius = (player == localPlayer) ?
+                        Config.LocalPlayerDimmingRadius * UIScale :
+                        Config.PlayerDimmingRadius * UIScale;
+                    radiiSquared[i] = radius * radius;
+
+                    i++;
+                }
+
+                if (i == 0)
+                    return 1.0f;
+
+                // Vectorized batch distance calculation (4-8 distances per cycle on AVX2)
+                VectorMath.CalculateDistancesSquaredBatch(
+                    entityZoomedPos.X,
+                    entityZoomedPos.Y,
+                    playerPositions,
+                    distancesSquared
+                );
+
+                // Check if entity is within any dimming zone
+                for (int j = 0; j < i; j++)
+                {
+                    if (distancesSquared[j] <= radiiSquared[j])
+                    {
+                        // Inside dimming zone: apply configured opacity reduction
+                        return 1.0f - Config.PlayerDimmingOpacity;
+                    }
+                }
+
+                // Outside all dimming zones: full opacity
+                return 1.0f;
+            }
+            finally
+            {
+                // Return rented arrays to pool
+                ArrayPool<System.Numerics.Vector2>.Shared.Return(playerPositions);
+                ArrayPool<float>.Shared.Return(radiiSquared);
+                ArrayPool<float>.Shared.Return(distancesSquared);
+            }
         }
 
         /// <summary>
@@ -1493,22 +1559,23 @@ namespace eft_dma_radar
                 return;
             }
 
-            // Performance optimized: find closest item without LINQ Aggregate
+            // Performance optimized: find closest item without LINQ Aggregate, using squared distance to avoid sqrt
             var mouse = new Vector2((float)currentPos.X, (float)currentPos.Y);
             IMouseoverEntity closest = null;
-            float closestDistance = float.MaxValue;
+            float closestDistanceSquared = float.MaxValue;
 
             foreach (var item in items)
             {
-                float distance = Vector2.Distance(item.MouseoverPosition, mouse);
-                if (distance < closestDistance)
+                float distanceSquared = VectorMath.DistanceSquared(item.MouseoverPosition, mouse);
+                if (distanceSquared < closestDistanceSquared)
                 {
-                    closestDistance = distance;
+                    closestDistanceSquared = distanceSquared;
                     closest = item;
                 }
             }
 
-            if (closest == null || closestDistance >= 12)
+            const float mouseThreshold = 12f;
+            if (closest == null || closestDistanceSquared >= mouseThreshold * mouseThreshold)
             {
                 ClearRefs();
                 return;
@@ -1610,18 +1677,19 @@ namespace eft_dma_radar
         {
             var mousePos = new Vector2((float)mousePosition.X, (float)mousePosition.Y);
             IMouseoverEntity closest = null;
-            var closestDist = float.MaxValue;
+            var closestDistSquared = float.MaxValue;
             int? mouseoverGroup = null;
+            float mouseThresholdSquared = (10f * UIScale) * (10f * UIScale);
 
             var items = MouseOverItems;
             if (items != null)
             {
                 foreach (var item in items)
                 {
-                    float dist = Vector2.Distance(mousePos, item.MouseoverPosition);
-                    if (dist < closestDist && dist < 10f * UIScale)
+                    float distSquared = VectorMath.DistanceSquared(mousePos, item.MouseoverPosition);
+                    if (distSquared < closestDistSquared && distSquared < mouseThresholdSquared)
                     {
-                        closestDist = dist;
+                        closestDistSquared = distSquared;
                         closest = item;
 
                         if (item is Player player)
