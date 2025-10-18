@@ -8,6 +8,10 @@ namespace eft_dma_radar.Tarkov.Loot
         private static readonly Predicate<LootItem> _pTrue = (x) => { return true; };
         private Predicate<LootItem> _filter = _pTrue;
 
+        // Performance optimization: Cache important loot LINQ query results
+        private List<LootItem> _cachedImportantLoot = null;
+        private int _lastLootCount = -1;
+
         public override string Name
         {
             get
@@ -50,5 +54,46 @@ namespace eft_dma_radar.Tarkov.Loot
         public IEnumerable<LootItem> FilteredLoot => Loot
             .Where(x => _filter(x))
             .OrderLoot();
+
+        /// <summary>
+        /// Performance-optimized method to get important loot items with caching.
+        /// Caches the filtered/ordered list and only recomputes when loot count changes.
+        /// This eliminates expensive LINQ queries (Where + 4x OrderBy) from running every frame.
+        /// </summary>
+        public List<LootItem> GetImportantLoot()
+        {
+            // Check if loot count changed (items picked up/dropped)
+            int currentCount = Loot?.Count ?? 0;
+
+            if (_cachedImportantLoot == null || currentCount != _lastLootCount)
+            {
+                // Recompute important loot only when necessary
+                if (this is LootCorpse && Loot != null)
+                {
+                    _cachedImportantLoot = Loot
+                        .Where(item => item.IsImportant ||
+                                      item is QuestItem ||
+                                      (Program.Config.QuestHelper.Enabled && item.IsQuestCondition) ||
+                                      item.IsWishlisted ||
+                                      (UI.Pages.LootFilterControl.ShowBackpacks && item.IsBackpack) ||
+                                      (UI.Pages.LootFilterControl.ShowMeds && item.IsMeds) ||
+                                      (UI.Pages.LootFilterControl.ShowFood && item.IsFood) ||
+                                      (UI.Pages.LootFilterControl.ShowWeapons && item.IsWeapon) ||
+                                      item.IsValuableLoot ||
+                                      (!item.IsGroupedBlacklisted && item.MatchedFilter?.Color != null && !string.IsNullOrEmpty(item.MatchedFilter.Color)))
+                        .OrderLoot()
+                        .Take(5)
+                        .ToList();
+                }
+                else
+                {
+                    _cachedImportantLoot = new List<LootItem>();
+                }
+
+                _lastLootCount = currentCount;
+            }
+
+            return _cachedImportantLoot;
+        }
     }
 }

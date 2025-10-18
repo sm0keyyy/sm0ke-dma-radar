@@ -21,6 +21,10 @@ namespace eft_dma_radar.Tarkov.Loot
         private static readonly Dictionary<string, DateTime> _lastNotifyTimes = new();
         private static readonly TimeSpan NotifyCooldown = TimeSpan.FromSeconds(30);
 
+        // Performance optimization: Static cache for distance text strings and measurements
+        // Eliminates string allocations and text measurements for common distances
+        private static readonly Dictionary<int, (string text, float width)> _distanceTextCache = new();
+
         public static EntityTypeSettings LootSettings => Config.EntityTypeSettings.GetSettings("RegularLoot");
         public static EntityTypeSettingsESP LootESPSettings => ESP.Config.EntityTypeESPSettings.GetSettings("RegularLoot");
 
@@ -451,23 +455,11 @@ namespace eft_dma_radar.Tarkov.Loot
                 return; // Skip all text at extreme zoom
             }
 
+            // Performance optimization: Use cached important loot to avoid expensive LINQ queries every frame
             List<LootItem> importantLootItems = null;
             if (this is LootCorpse corpse && CorpseSettings.ShowImportantLoot)
             {
-                importantLootItems = corpse.Loot?
-                    .Where(item => item.IsImportant ||
-                                  item is QuestItem ||
-                                  (Config.QuestHelper.Enabled && item.IsQuestCondition) ||
-                                  item.IsWishlisted ||
-                                  (LootFilterControl.ShowBackpacks && item.IsBackpack) ||
-                                  (LootFilterControl.ShowMeds && item.IsMeds) ||
-                                  (LootFilterControl.ShowFood && item.IsFood) ||
-                                  (LootFilterControl.ShowWeapons && item.IsWeapon) ||
-                                  item.IsValuableLoot ||
-                                  (!item.IsGroupedBlacklisted && item.MatchedFilter?.Color != null && !string.IsNullOrEmpty(item.MatchedFilter.Color)))
-                    .OrderLoot()
-                    .Take(5)
-                    .ToList();
+                importantLootItems = corpse.GetImportantLoot(); // Cached - only recomputes when loot changes
             }
 
             float distanceYOffset;
@@ -501,19 +493,26 @@ namespace eft_dma_radar.Tarkov.Loot
 
             if (entitySettings.ShowName || entitySettings.ShowValue)
             {
-                point.Offset(nameXOffset, nameYOffset);
-                if (!string.IsNullOrEmpty(label))
+                // Performance optimization: Cache label to avoid recomputation every frame
+                if (_cachedLabel == null)
                 {
-                    canvas.DrawText(label, point, SKPaints.TextOutline);
-                    canvas.DrawText(label, point, paints.Item2);
+                    _cachedLabel = label;
+                    _cachedLabelWidth = paints.Item2.MeasureText(label);
+                }
+
+                point.Offset(nameXOffset, nameYOffset);
+                if (!string.IsNullOrEmpty(_cachedLabel))
+                {
+                    canvas.DrawText(_cachedLabel, point, SKPaints.TextOutline);
+                    canvas.DrawText(_cachedLabel, point, paints.Item2);
                 }
             }
 
             var currentBottomY = point.Y + distanceYOffset - nameYOffset;
             if (entitySettings.ShowDistance)
             {
-                var distText = $"{(int)dist}m";
-                var distWidth = paints.Item2.MeasureText(distText);
+                // Performance optimization: Use cached distance text to avoid string allocations and measurements
+                var (distText, distWidth) = GetCachedDistanceText((int)dist, paints.Item2);
                 var distPoint = new SKPoint(
                     point.X - (distWidth / 2) - nameXOffset,
                     currentBottomY
@@ -524,15 +523,25 @@ namespace eft_dma_radar.Tarkov.Loot
 
             if (importantLootItems?.Any() == true)
             {
+                // Performance optimization: Cache important items text and measurements
+                if (_cachedImportantItemsText == null || _cachedImportantItemsText.Count != importantLootItems.Count)
+                {
+                    _cachedImportantItemsText = new List<(string, float, SKPaint)>();
+                    foreach (var item in importantLootItems)
+                    {
+                        var itemText = item.GetUILabel();
+                        var itemPaint = GetItemTextPaint(item);
+                        var itemWidth = itemPaint.MeasureText(itemText);
+                        _cachedImportantItemsText.Add((itemText, itemWidth, itemPaint));
+                    }
+                }
+
                 var spacing = 1 * MainWindow.UIScale;
                 var textSize = 12 * MainWindow.UIScale;
                 currentBottomY += textSize + spacing;
 
-                foreach (var item in importantLootItems)
+                foreach (var (itemText, itemWidth, itemPaint) in _cachedImportantItemsText)
                 {
-                    var itemText = item.GetUILabel();
-                    var itemPaint = GetItemTextPaint(item);
-                    var itemWidth = itemPaint.MeasureText(itemText);
                     var itemPoint = new SKPoint(point.X - (itemWidth / 2) - nameXOffset, currentBottomY);
 
                     canvas.DrawText(itemText, itemPoint, SKPaints.TextOutline);
@@ -546,6 +555,11 @@ namespace eft_dma_radar.Tarkov.Loot
         private Vector3 _position;
         public ref Vector3 Position => ref _position;
         public Vector2 MouseoverPosition { get; set; }
+
+        // Performance optimization: Cache text measurements and labels to avoid recalculation every frame
+        private string _cachedLabel = null;
+        private float _cachedLabelWidth = -1f;
+        private List<(string text, float width, SKPaint paint)> _cachedImportantItemsText = null;
 
         public virtual void DrawESP(SKCanvas canvas, LocalPlayer localPlayer)
         {
@@ -1342,6 +1356,31 @@ namespace eft_dma_radar.Tarkov.Loot
                     return existingValue;
                 });
             return result;
+        }
+
+        /// <summary>
+        /// Performance-optimized method to get distance text with caching.
+        /// Caches both the formatted string and its measured width to eliminate allocations and measurements.
+        /// Rounds to nearest 5m for better cache hit rate while maintaining accuracy.
+        /// </summary>
+        private static (string text, float width) GetCachedDistanceText(int distance, SKPaint paint)
+        {
+            // Round to nearest 5m for better cache hit rate
+            int roundedDist = ((distance + 2) / 5) * 5;
+
+            if (!_distanceTextCache.TryGetValue(roundedDist, out var cached))
+            {
+                cached.text = $"{roundedDist}m";
+                cached.width = paint.MeasureText(cached.text);
+
+                // Limit cache size to prevent unbounded growth
+                if (_distanceTextCache.Count < 1000)
+                {
+                    _distanceTextCache[roundedDist] = cached;
+                }
+            }
+
+            return cached;
         }
         #endregion
     }

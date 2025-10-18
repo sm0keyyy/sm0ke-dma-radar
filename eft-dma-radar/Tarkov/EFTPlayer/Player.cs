@@ -305,6 +305,15 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
         public bool IsAiming { get; set; } = false;
         private bool _isAimbotLocked;
 
+        // Performance optimization: Cache text measurements for name and distance
+        private string _cachedNameText = null;
+        private float _cachedNameWidth = -1f;
+        private List<(string text, float width, SKPaint paint)> _cachedImportantLootText = null;
+
+        // Static cache for distance strings (shared across all players)
+        private static readonly Dictionary<int, (string text, float width)> _playerDistanceCache = new();
+        private static readonly Dictionary<int, (string text, float width)> _playerHeightCache = new();
+
         #endregion
 
         #region Virtual Properties
@@ -1448,8 +1457,14 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
 
             if (!string.IsNullOrEmpty(nameText))
             {
-                var nameWidth = paints.Item2.MeasureText(nameText);
-                var namePoint = new SKPoint(point.X - (nameWidth / 2), baseYPosition - 0);
+                // Performance optimization: Cache name text measurement
+                if (_cachedNameText != nameText)
+                {
+                    _cachedNameText = nameText;
+                    _cachedNameWidth = paints.Item2.MeasureText(nameText);
+                }
+
+                var namePoint = new SKPoint(point.X - (_cachedNameWidth / 2), baseYPosition - 0);
 
                 canvas.DrawText(nameText, namePoint, SKPaints.TextOutline);
                 canvas.DrawText(nameText, namePoint, paints.Item2);
@@ -1482,22 +1497,34 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
             var currentBottomY = point.Y + 20 * MainWindow.UIScale;
             if (!string.IsNullOrEmpty(distanceText))
             {
-                var distWidth = paints.Item2.MeasureText(distanceText);
+                // Performance optimization: Use cached distance text
+                int dist = int.Parse(distanceText.TrimEnd('m'));
+                var (cachedDistText, distWidth) = GetCachedDistanceText(dist, paints.Item2);
                 var distPoint = new SKPoint(point.X - (distWidth / 2), currentBottomY);
 
-                canvas.DrawText(distanceText, distPoint, SKPaints.TextOutline);
-                canvas.DrawText(distanceText, distPoint, paints.Item2);
+                canvas.DrawText(cachedDistText, distPoint, SKPaints.TextOutline);
+                canvas.DrawText(cachedDistText, distPoint, paints.Item2);
             }
 
             if (importantLootItems?.Any() == true)
             {
+                // Performance optimization: Cache important loot items text measurements
+                if (_cachedImportantLootText == null || _cachedImportantLootText.Count != importantLootItems.Count)
+                {
+                    _cachedImportantLootText = new List<(string, float, SKPaint)>();
+                    foreach (var item in importantLootItems)
+                    {
+                        var itemText = item.ShortName;
+                        var itemPaint = GetPlayerLootItemTextPaint(item);
+                        var itemWidth = itemPaint.MeasureText(itemText);
+                        _cachedImportantLootText.Add((itemText, itemWidth, itemPaint));
+                    }
+                }
+
                 currentBottomY += textSize + spacing;
 
-                foreach (var item in importantLootItems)
+                foreach (var (itemText, itemWidth, itemPaint) in _cachedImportantLootText)
                 {
-                    var itemText = item.ShortName;
-                    var itemPaint = GetPlayerLootItemTextPaint(item);
-                    var itemWidth = itemPaint.MeasureText(itemText);
                     var itemPoint = new SKPoint(point.X - (itemWidth / 2), currentBottomY);
 
                     canvas.DrawText(itemText, itemPoint, SKPaints.TextOutline);
@@ -1509,11 +1536,13 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
 
             if (!string.IsNullOrEmpty(heightText))
             {
-                var heightWidth = paints.Item2.MeasureText(heightText);
+                // Performance optimization: Use cached height text
+                int height = int.Parse(heightText.TrimStart('+').TrimEnd('m'));
+                var (cachedHeightText, heightWidth) = GetCachedHeightText(height, paints.Item2);
                 var heightPoint = new SKPoint(point.X - heightWidth - 15 * MainWindow.UIScale, point.Y + 5 * MainWindow.UIScale);
 
-                canvas.DrawText(heightText, heightPoint, SKPaints.TextOutline);
-                canvas.DrawText(heightText, heightPoint, paints.Item2);
+                canvas.DrawText(cachedHeightText, heightPoint, SKPaints.TextOutline);
+                canvas.DrawText(cachedHeightText, heightPoint, paints.Item2);
             }
 
             if (rightSideInfo.Count > 0)
@@ -1533,6 +1562,44 @@ namespace eft_dma_radar.Tarkov.EFTPlayer
                     rightPoint.Offset(0, textSize);
                 }
             }
+        }
+
+        /// <summary>
+        /// Performance-optimized method to get cached distance text.
+        /// Rounds to nearest 5m for better cache hit rate.
+        /// </summary>
+        private static (string text, float width) GetCachedDistanceText(int distance, SKPaint paint)
+        {
+            int roundedDist = ((distance + 2) / 5) * 5;
+
+            if (!_playerDistanceCache.TryGetValue(roundedDist, out var cached))
+            {
+                cached.text = $"{roundedDist}m";
+                cached.width = paint.MeasureText(cached.text);
+
+                if (_playerDistanceCache.Count < 1000)
+                    _playerDistanceCache[roundedDist] = cached;
+            }
+
+            return cached;
+        }
+
+        /// <summary>
+        /// Performance-optimized method to get cached height difference text.
+        /// </summary>
+        private static (string text, float width) GetCachedHeightText(int heightDiff, SKPaint paint)
+        {
+            if (!_playerHeightCache.TryGetValue(heightDiff, out var cached))
+            {
+                string sign = heightDiff > 0 ? "+" : "";
+                cached.text = $"{sign}{heightDiff}m";
+                cached.width = paint.MeasureText(cached.text);
+
+                if (_playerHeightCache.Count < 500)
+                    _playerHeightCache[heightDiff] = cached;
+            }
+
+            return cached;
         }
 
         /// <summary>

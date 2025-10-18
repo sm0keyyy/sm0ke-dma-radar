@@ -16,6 +16,9 @@ namespace eft_dma_radar.Tarkov.Loot
         public static EntityTypeSettingsESP ESPSettings => ESP.Config.EntityTypeESPSettings.GetSettings("StaticContainer");
         private const float HEIGHT_INDICATOR_THRESHOLD = 1.85f;
 
+        // Performance optimization: Static cache for distance text strings and measurements
+        private static readonly Dictionary<int, (string text, float width)> _distanceTextCache = new();
+
         public override string Name { get; } = "Container";
         public override string ID { get; }
         public ulong GameObject { get; set; }
@@ -85,8 +88,8 @@ namespace eft_dma_radar.Tarkov.Loot
 
             if (Settings.ShowDistance)
             {
-                var distText = $"{(int)dist}m";
-                var distWidth = SKPaints.TextContainer.MeasureText($"{(int)dist}");
+                // Performance optimization: Use cached distance text
+                var (distText, distWidth) = GetCachedDistanceText((int)dist, SKPaints.TextContainer);
                 var distPoint = new SKPoint(
                     point.X - (distWidth / 2),
                     point.Y + distanceYOffset
@@ -94,6 +97,31 @@ namespace eft_dma_radar.Tarkov.Loot
                 canvas.DrawText(distText, distPoint, SKPaints.TextOutline);
                 canvas.DrawText(distText, distPoint, SKPaints.TextContainer);
             }
+        }
+
+        /// <summary>
+        /// Performance-optimized method to get distance text with caching.
+        /// Caches both the formatted string and its measured width to eliminate allocations and measurements.
+        /// Rounds to nearest 5m for better cache hit rate while maintaining accuracy.
+        /// </summary>
+        private static (string text, float width) GetCachedDistanceText(int distance, SKPaint paint)
+        {
+            // Round to nearest 5m for better cache hit rate
+            int roundedDist = ((distance + 2) / 5) * 5;
+
+            if (!_distanceTextCache.TryGetValue(roundedDist, out var cached))
+            {
+                cached.text = $"{roundedDist}m";
+                cached.width = paint.MeasureText(cached.text);
+
+                // Limit cache size to prevent unbounded growth
+                if (_distanceTextCache.Count < 1000)
+                {
+                    _distanceTextCache[roundedDist] = cached;
+                }
+            }
+
+            return cached;
         }
 
         public override void DrawESP(SKCanvas canvas, LocalPlayer localPlayer)
