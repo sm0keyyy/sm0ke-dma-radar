@@ -173,9 +173,9 @@ namespace eft_dma_radar.Tarkov.Loot
                                                 x4.TryGetResult<UTF8String>(9, out var objectNameUtf8) &&
                                                 x4.TryGetResult<MemPointer>(10, out var transformInternal))
                                             {
-                                                // Convert UTF8String to string for comparisons
-                                                var className = classNameUtf8.ToString();
-                                                var objectName = objectNameUtf8.ToString();
+                                                // Convert UTF8String to string for comparisons (use implicit cast, not .ToString()!)
+                                                string className = classNameUtf8;
+                                                string objectName = objectNameUtf8;
 
                                                 // Debug: Log first 5 unique classNames to see what we're getting
                                                 if (i < 5)
