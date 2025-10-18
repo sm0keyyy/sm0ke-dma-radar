@@ -600,12 +600,6 @@ namespace eft_dma_radar
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
                     }
 
-                    // Draw player dimming zones (after loot, before players)
-                    if (!Config.PlayersOnTop)
-                    {
-                        DrawPlayerDimmingZones(canvas, allPlayers, localPlayer, map, mapParams);
-                    }
-
                     if (!Config.PlayersOnTop)
                     {
                         // Performance optimized: use cached ordered players list
@@ -639,7 +633,18 @@ namespace eft_dma_radar
                                     if (!IsWorldPosInViewport(container.Position, mapParams, canvasWidth, canvasHeight))
                                         continue;
 
-                                    container.Draw(canvas, mapParams, localPlayer);
+                                    // Apply proximity-based dimming to reduce clutter near players
+                                    float opacity = CalculateEntityOpacityNearPlayers(container.Position, allPlayers, localPlayer, map, mapParams);
+                                    if (opacity < 1.0f)
+                                    {
+                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                        container.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
+                                    else
+                                    {
+                                        container.Draw(canvas, mapParams, localPlayer);
+                                    }
                                 }
                             }
                         }
@@ -688,7 +693,19 @@ namespace eft_dma_radar
                                         continue;
 
                                     item.CheckNotify();
-                                    item.Draw(canvas, mapParams, localPlayer);
+
+                                    // Apply proximity-based dimming to reduce clutter near players
+                                    float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
+                                    if (opacity < 1.0f)
+                                    {
+                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                        item.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
+                                    else
+                                    {
+                                        item.Draw(canvas, mapParams, localPlayer);
+                                    }
                                 }
                             }
                             else
@@ -709,7 +726,19 @@ namespace eft_dma_radar
                                         continue;
 
                                     item.CheckNotify();
-                                    item.Draw(canvas, mapParams, localPlayer);
+
+                                    // Apply proximity-based dimming to reduce clutter near players
+                                    float opacity = CalculateEntityOpacityNearPlayers(item.Position, allPlayers, localPlayer, map, mapParams);
+                                    if (opacity < 1.0f)
+                                    {
+                                        canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                        item.Draw(canvas, mapParams, localPlayer);
+                                        canvas.Restore();
+                                    }
+                                    else
+                                    {
+                                        item.Draw(canvas, mapParams, localPlayer);
+                                    }
                                 }
                             }
                         }
@@ -785,14 +814,40 @@ namespace eft_dma_radar
                                 if (exit is Exfil exfil && !localPlayer.IsPmc && exfil.Status is Exfil.EStatus.Closed)
                                     continue; // Only draw available SCAV Exfils
 
-                                exit.Draw(canvas, mapParams, localPlayer);
+                                // Apply proximity-based dimming to reduce clutter near players
+                                float opacity = CalculateEntityOpacityNearPlayers(exit.Position, allPlayers, localPlayer, map, mapParams);
+                                if (opacity < 1.0f)
+                                {
+                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                    exit.Draw(canvas, mapParams, localPlayer);
+                                    canvas.Restore();
+                                }
+                                else
+                                {
+                                    exit.Draw(canvas, mapParams, localPlayer);
+                                }
                             }
                         }
                     }
 
                     if (!battleMode && Switch.Settings.Enabled)
+                    {
                         foreach (var swtch in Switches)
-                            swtch.Draw(canvas, mapParams, localPlayer);
+                        {
+                            // Apply proximity-based dimming to reduce clutter near players
+                            float opacity = CalculateEntityOpacityNearPlayers(swtch.Position, allPlayers, localPlayer, map, mapParams);
+                            if (opacity < 1.0f)
+                            {
+                                canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                swtch.Draw(canvas, mapParams, localPlayer);
+                                canvas.Restore();
+                            }
+                            else
+                            {
+                                swtch.Draw(canvas, mapParams, localPlayer);
+                            }
+                        }
+                    }
 
                     if (!battleMode && Door.Settings.Enabled)
                     {
@@ -807,7 +862,20 @@ namespace eft_dma_radar
                             }
 
                             foreach (var door in Doors)
-                                door.Draw(canvas, mapParams, localPlayer);
+                            {
+                                // Apply proximity-based dimming to reduce clutter near players
+                                float opacity = CalculateEntityOpacityNearPlayers(door.Position, allPlayers, localPlayer, map, mapParams);
+                                if (opacity < 1.0f)
+                                {
+                                    canvas.SaveLayer(new SKPaint { Color = SKColors.White.WithAlpha((byte)(opacity * 255)) });
+                                    door.Draw(canvas, mapParams, localPlayer);
+                                    canvas.Restore();
+                                }
+                                else
+                                {
+                                    door.Draw(canvas, mapParams, localPlayer);
+                                }
+                            }
                         }
                         else
                         {
@@ -820,12 +888,6 @@ namespace eft_dma_radar
                     if (Config.PlayersOnTop && Config.ConnectGroups)
                     {
                         DrawGroupConnections(canvas, allPlayers, map, mapParams);
-                    }
-
-                    // Draw player dimming zones (after loot, before players)
-                    if (Config.PlayersOnTop)
-                    {
-                        DrawPlayerDimmingZones(canvas, allPlayers, localPlayer, map, mapParams);
                     }
 
                     if (Config.PlayersOnTop)
@@ -1039,29 +1101,52 @@ namespace eft_dma_radar
         }
 
         /// <summary>
-        /// Draws semi-transparent dimming zones around players to make them stand out from loot.
-        /// Renders larger radius for local player to emphasize their position.
-        /// Performance optimized: uses pooled paint object instead of creating new one each frame.
+        /// Calculates the opacity factor for an entity based on its proximity to players.
+        /// Entities close to players are faded out to reduce visual clutter and make players stand out.
+        /// Performance optimized: returns early if dimming is disabled.
         /// </summary>
-        private void DrawPlayerDimmingZones(SKCanvas canvas, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
+        /// <param name="entityPos">Position of the entity in world coordinates</param>
+        /// <param name="allPlayers">All players in the raid</param>
+        /// <param name="localPlayer">The local player (has larger dimming radius)</param>
+        /// <param name="map">Current map for coordinate conversion</param>
+        /// <param name="mapParams">Map parameters for zoomed position calculation</param>
+        /// <returns>Opacity multiplier (0.0-1.0). 1.0 = full opacity, lower values = more transparent</returns>
+        private float CalculateEntityOpacityNearPlayers(Vector3 entityPos, IEnumerable<Player> allPlayers, Player localPlayer, ILoneMap map, LoneMapParams mapParams)
         {
-            if (!Config.PlayerDimmingEnabled || allPlayers is null) return;
+            if (!Config.PlayerDimmingEnabled || allPlayers is null)
+                return 1.0f; // Full opacity when dimming is disabled
 
-            // Update pooled paint color only (avoid allocation)
-            byte alpha = (byte)(Config.PlayerDimmingOpacity * 255);
-            _dimmingPaint.Color = SKColors.Black.WithAlpha(alpha);
+            var entityMapPos = entityPos.ToMapPos(map.Config).ToZoomedPos(mapParams);
+            float minDistanceSq = float.MaxValue;
 
             foreach (var player in allPlayers)
             {
                 if (player is null) continue;
 
-                var pos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
+                var playerMapPos = player.Position.ToMapPos(map.Config).ToZoomedPos(mapParams);
                 float radius = (player == localPlayer) ?
                     Config.LocalPlayerDimmingRadius * UIScale :
                     Config.PlayerDimmingRadius * UIScale;
 
-                canvas.DrawCircle(pos.X, pos.Y, radius, _dimmingPaint);
+                // Calculate squared distance (avoid sqrt for performance)
+                float dx = entityMapPos.X - playerMapPos.X;
+                float dy = entityMapPos.Y - playerMapPos.Y;
+                float distSq = dx * dx + dy * dy;
+                float radiusSq = radius * radius;
+
+                if (distSq < minDistanceSq)
+                    minDistanceSq = distSq;
+
+                // Early exit if we're already very close to a player
+                if (distSq <= radiusSq)
+                {
+                    // Inside dimming zone: apply configured opacity reduction
+                    return 1.0f - Config.PlayerDimmingOpacity;
+                }
             }
+
+            // Outside all dimming zones: full opacity
+            return 1.0f;
         }
 
         /// <summary>
