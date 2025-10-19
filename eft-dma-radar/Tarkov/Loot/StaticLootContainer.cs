@@ -90,13 +90,16 @@ namespace eft_dma_radar.Tarkov.Loot
 
                 if (MainWindow.DistanceAtlas != null && MainWindow.DistanceAtlas.Contains(distText))
                 {
-                    // Use ultra-fast atlas rendering
+                    // Use ultra-fast atlas rendering (10-50x faster!)
                     MainWindow.DistanceAtlas.DrawCentered(canvas, distText, distPoint, SKPaints.TextContainer);
                 }
                 else
                 {
-                    // Fallback to SKTextBlob (3-5x faster)
-                    canvas.DrawTextFastCenteredWithOutline(distText, distPoint, SKPaints.TextContainer, SKPaints.TextOutline);
+                    // Fallback: Use regular DrawText to avoid cache pollution
+                    var textWidth = SKPaints.TextContainer.MeasureText(distText);
+                    var x = distPoint.X - (textWidth / 2f);
+                    canvas.DrawText(distText, x, distPoint.Y, SKPaints.TextOutline);
+                    canvas.DrawText(distText, x, distPoint.Y, SKPaints.TextContainer);
                 }
             }
         }

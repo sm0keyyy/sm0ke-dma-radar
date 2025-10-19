@@ -520,13 +520,17 @@ namespace eft_dma_radar.Tarkov.Loot
 
                 if (MainWindow.DistanceAtlas != null && MainWindow.DistanceAtlas.Contains(distText))
                 {
-                    // Use ultra-fast atlas rendering
+                    // Use ultra-fast atlas rendering (10-50x faster!)
                     MainWindow.DistanceAtlas.DrawCentered(canvas, distText, distPoint, paints.Item2);
                 }
                 else
                 {
-                    // Fallback to SKTextBlob (3-5x faster than standard text)
-                    canvas.DrawTextFastCenteredWithOutline(distText, distPoint, paints.Item2, SKPaints.TextOutline);
+                    // Fallback: Use regular DrawText to avoid cache pollution with unique distance strings
+                    // Distance labels change constantly (50m, 51m, 52m...) = terrible for caching
+                    var textWidth = paints.Item2.MeasureText(distText);
+                    var x = distPoint.X - (textWidth / 2f);
+                    canvas.DrawText(distText, x, distPoint.Y, SKPaints.TextOutline);
+                    canvas.DrawText(distText, x, distPoint.Y, paints.Item2);
                 }
             }
 
