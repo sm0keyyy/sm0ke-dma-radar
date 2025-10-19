@@ -82,7 +82,7 @@ namespace eft_dma_radar.Tarkov.Loot
         {
             try
             {
-                GetLoot();
+                GetLootOptimized();
                 RefreshFilter();
 
                 LootItem.CleanupNotificationHistory(UnfilteredLoot);
@@ -102,7 +102,276 @@ namespace eft_dma_radar.Tarkov.Loot
         #region Private Methods
 
         /// <summary>
-        /// Updates referenced Loot List with fresh values.
+        /// OPTIMIZED: Get BSG IDs early, then only do expensive position updates for filtered items.
+        /// UnfilteredLoot still contains ALL items, but filtered-out items get stale positions.
+        /// </summary>
+        private void GetLootOptimized()
+        {
+            var lootListAddr = Memory.ReadPtr(_lgw + Offsets.ClientLocalGameWorld.LootList);
+            using var lootList = MemList<ulong>.Get(lootListAddr);
+            var loot = new List<LootItem>(lootList.Count);
+            var containers = new List<StaticLootContainer>(64);
+            var deadPlayers = Memory.Players?
+                .Where(x => x.Corpse is not null)?.ToList();
+
+            // Create filter once upfront
+            var filter = LootFilterControl.Create();
+
+            // Track which items need full position updates (passing filter + corpses/containers)
+            var itemsNeedingPositionUpdate = new HashSet<int>();
+
+            using var map = ScatterReadMap.Get();
+            var round1 = map.AddRound();
+            var round2 = map.AddRound();
+            var round3 = map.AddRound();
+            var round4 = map.AddRound();
+            var round5 = map.AddRound(); // Item/Container base pointers
+            var round6 = map.AddRound(); // Item templates
+            var round7 = map.AddRound(); // BSG IDs (EARLY!)
+            var round8 = map.AddRound(); // Position updates (CONDITIONAL!)
+
+            for (int ix = 0; ix < lootList.Count; ix++)
+            {
+                var i = ix;
+                _ct.ThrowIfCancellationRequested();
+                var lootBase = lootList[i];
+                round1[i].AddEntry<MemPointer>(0, lootBase + ObjectClass.MonoBehaviourOffset);
+                round1[i].AddEntry<MemPointer>(1, lootBase + ObjectClass.To_NamePtr[0]);
+
+                round1[i].Callbacks += x1 =>
+                {
+                    if (x1.TryGetResult<MemPointer>(0, out var monoBehaviour) && x1.TryGetResult<MemPointer>(1, out var c1))
+                    {
+                        round2[i].AddEntry<MemPointer>(2, monoBehaviour + MonoBehaviour.ObjectClassOffset);
+                        round2[i].AddEntry<MemPointer>(3, monoBehaviour + MonoBehaviour.GameObjectOffset);
+                        round2[i].AddEntry<MemPointer>(4, c1 + ObjectClass.To_NamePtr[1]);
+
+                        round2[i].Callbacks += x2 =>
+                        {
+                            if (x2.TryGetResult<MemPointer>(2, out var interactiveClass) &&
+                                x2.TryGetResult<MemPointer>(3, out var gameObject) &&
+                                x2.TryGetResult<MemPointer>(4, out var c2))
+                            {
+                                round3[i].AddEntry<MemPointer>(5, c2 + ObjectClass.To_NamePtr[2]);
+                                round3[i].AddEntry<MemPointer>(6, gameObject + GameObject.ComponentsOffset);
+                                round3[i].AddEntry<MemPointer>(7, gameObject + GameObject.NameOffset);
+
+                                round3[i].Callbacks += x3 =>
+                                {
+                                    if (x3.TryGetResult<MemPointer>(5, out var classNamePtr) &&
+                                        x3.TryGetResult<MemPointer>(6, out var components) &&
+                                        x3.TryGetResult<MemPointer>(7, out var pGameObjectName))
+                                    {
+                                        round4[i].AddEntry<UTF8String>(8, classNamePtr, 64);
+                                        round4[i].AddEntry<UTF8String>(9, pGameObjectName, 64);
+                                        round4[i].AddEntry<MemPointer>(10, components + 0x8); // TransformInternal
+
+                                        round4[i].Callbacks += x4 =>
+                                        {
+                                            if (x4.TryGetResult<UTF8String>(8, out var classNameUtf8) &&
+                                                x4.TryGetResult<UTF8String>(9, out var objectNameUtf8) &&
+                                                x4.TryGetResult<MemPointer>(10, out var transformInternal))
+                                            {
+                                                string className = classNameUtf8;
+                                                string objectName = objectNameUtf8;
+
+                                                var isCorpse = className.Contains("Corpse", StringComparison.OrdinalIgnoreCase);
+                                                var isLooseLoot = className.Equals("ObservedLootItem", StringComparison.OrdinalIgnoreCase);
+                                                var isContainer = className.Equals("LootableContainer", StringComparison.OrdinalIgnoreCase);
+                                                var skipScript = objectName.Contains("script", StringComparison.OrdinalIgnoreCase);
+
+                                                // Corpses/airdrops always need position updates
+                                                if (isCorpse || (isContainer && objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase)))
+                                                {
+                                                    itemsNeedingPositionUpdate.Add(i);
+                                                }
+
+                                                // Round 5-7: Get BSG ID EARLY to check filter
+                                                if (!skipScript && (isLooseLoot || isContainer))
+                                                {
+                                                    if (isLooseLoot)
+                                                    {
+                                                        round5[i].AddEntry<ulong>(11, interactiveClass + Offsets.InteractiveLootItem.Item);
+                                                    }
+
+                                                    if (isContainer && !objectName.Equals("loot_collider", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        round5[i].AddEntry<ulong>(18, interactiveClass + Offsets.LootableContainer.ItemOwner);
+                                                        round5[i].AddEntry<ulong>(19, interactiveClass + Offsets.LootableContainer.InteractingPlayer);
+                                                    }
+
+                                                    round5[i].Callbacks += x5 =>
+                                                    {
+                                                        if (isLooseLoot && x5.TryGetResult<ulong>(11, out var lootItemPtr) && lootItemPtr != 0)
+                                                        {
+                                                            round6[i].AddEntry<ulong>(13, lootItemPtr + Offsets.LootItem.Template);
+                                                        }
+
+                                                        if (isContainer && x5.TryGetResult<ulong>(18, out var containerOwnerPtr) && containerOwnerPtr != 0)
+                                                        {
+                                                            round6[i].AddEntry<ulong>(20, containerOwnerPtr + Offsets.LootableContainerItemOwner.RootItem);
+                                                        }
+
+                                                        round6[i].Callbacks += x6 =>
+                                                        {
+                                                            // Round 7: Get BSG ID early for filtering
+                                                            bool needsPosition = false;
+
+                                                            if (isContainer && x6.TryGetResult<ulong>(20, out var containerRootItem))
+                                                            {
+                                                                round7[i].AddEntry<ulong>(21, containerRootItem + Offsets.LootItem.Template);
+                                                                round7[i].Callbacks += x7_container =>
+                                                                {
+                                                                    if (x7_container.TryGetResult<ulong>(21, out var containerTemplate))
+                                                                    {
+                                                                        var bsgIdPtr = Memory.ReadValue<Types.MongoID>(containerTemplate + Offsets.ItemTemplate._id);
+                                                                        var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+
+                                                                        // Check filter early!
+                                                                        if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                        {
+                                                                            var tempContainer = new StaticLootContainer(bsgId, false);
+                                                                            if (filter(tempContainer))
+                                                                            {
+                                                                                itemsNeedingPositionUpdate.Add(i);
+                                                                                needsPosition = true;
+                                                                            }
+                                                                        }
+
+                                                                        // Round 8: Position update (ONLY if needed)
+                                                                        if (needsPosition || itemsNeedingPositionUpdate.Contains(i))
+                                                                        {
+                                                                            x5.TryGetResult<ulong>(19, out var interactingPlayer);
+                                                                            bool containerOpened = interactingPlayer != 0;
+
+                                                                            map.CompletionCallbacks += () =>
+                                                                            {
+                                                                                var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+                                                                                containers.Add(new StaticLootContainer(bsgId, containerOpened)
+                                                                                {
+                                                                                    Position = pos,
+                                                                                    InteractiveClass = interactiveClass,
+                                                                                    GameObject = gameObject
+                                                                                });
+                                                                            };
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            // Still add to list, but with zero position (stale data acceptable)
+                                                                            x5.TryGetResult<ulong>(19, out var interactingPlayer);
+                                                                            bool containerOpened = interactingPlayer != 0;
+
+                                                                            containers.Add(new StaticLootContainer(bsgId, containerOpened)
+                                                                            {
+                                                                                Position = Vector3.Zero,
+                                                                                InteractiveClass = interactiveClass,
+                                                                                GameObject = gameObject
+                                                                            });
+                                                                        }
+                                                                    }
+                                                                };
+                                                            }
+
+                                                            if (isLooseLoot && x6.TryGetResult<ulong>(13, out var lootTemplate))
+                                                            {
+                                                                round7[i].AddEntry<bool>(16, lootTemplate + Offsets.ItemTemplate.QuestItem);
+                                                                round7[i].AddEntry<Types.MongoID>(17, lootTemplate + Offsets.ItemTemplate._id);
+
+                                                                round7[i].Callbacks += x7_loot =>
+                                                                {
+                                                                    if (x7_loot.TryGetResult<bool>(16, out var isQuestItem) &&
+                                                                        x7_loot.TryGetResult<Types.MongoID>(17, out var bsgIdPtr))
+                                                                    {
+                                                                        var bsgId = Memory.ReadUnityString(bsgIdPtr.StringID);
+
+                                                                        // Check filter early!
+                                                                        bool passesFilter = false;
+                                                                        if (EftDataManager.AllItems.TryGetValue(bsgId, out var entry))
+                                                                        {
+                                                                            var tempItem = new LootItem(entry) { Position = Vector3.Zero };
+                                                                            passesFilter = filter(tempItem);
+                                                                        }
+
+                                                                        if (passesFilter || isQuestItem)
+                                                                        {
+                                                                            itemsNeedingPositionUpdate.Add(i);
+                                                                        }
+
+                                                                        // Round 8: Position update (ONLY if passes filter)
+                                                                        if (passesFilter || isQuestItem || itemsNeedingPositionUpdate.Contains(i))
+                                                                        {
+                                                                            map.CompletionCallbacks += () =>
+                                                                            {
+                                                                                var pos = new UnityTransform(transformInternal, true).UpdatePosition();
+
+                                                                                if (isQuestItem)
+                                                                                {
+                                                                                    if (EftDataManager.AllItems.TryGetValue(bsgId, out var e))
+                                                                                    {
+                                                                                        loot.Add(new QuestItem(e) { Position = pos, InteractiveClass = interactiveClass });
+                                                                                    }
+                                                                                    else
+                                                                                    {
+                                                                                        var shortNamePtr = Memory.ReadPtr(lootTemplate + Offsets.ItemTemplate.ShortName);
+                                                                                        var shortName = Memory.ReadUnityString(shortNamePtr)?.Trim();
+                                                                                        loot.Add(new QuestItem(bsgId, $"Q_{shortName ?? "Item"}") { Position = pos, InteractiveClass = interactiveClass });
+                                                                                    }
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    if (EftDataManager.AllItems.TryGetValue(bsgId, out var e))
+                                                                                    {
+                                                                                        loot.Add(new LootItem(e) { Position = pos, InteractiveClass = interactiveClass });
+                                                                                    }
+                                                                                }
+                                                                            };
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            // Still add to UnfilteredLoot, but with zero position (stale)
+                                                                            if (EftDataManager.AllItems.TryGetValue(bsgId, out var e))
+                                                                            {
+                                                                                loot.Add(new LootItem(e) { Position = Vector3.Zero, InteractiveClass = interactiveClass });
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                };
+                                                            }
+                                                        };
+                                                    };
+                                                }
+                                                else
+                                                {
+                                                    // Corpses and airdrops
+                                                    map.CompletionCallbacks += () =>
+                                                    {
+                                                        _ct.ThrowIfCancellationRequested();
+                                                        try
+                                                        {
+                                                            ProcessLootIndex(loot, containers, deadPlayers,
+                                                                interactiveClass, objectName,
+                                                                transformInternal, className, gameObject);
+                                                        }
+                                                        catch { }
+                                                    };
+                                                }
+                                            }
+                                        };
+                                    }
+                                };
+                            }
+                        };
+                    }
+                };
+            }
+
+            map.Execute();
+            this.UnfilteredLoot = loot;
+            this.StaticLootContainers = containers;
+        }
+
+        /// <summary>
+        /// Updates referenced Loot List with fresh values (ORIGINAL - kept as backup).
         /// </summary>
         private void GetLoot()
         {
