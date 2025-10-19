@@ -82,7 +82,7 @@ namespace eft_dma_radar.Tarkov.Loot
         {
             try
             {
-                GetLootOptimized();
+                GetLoot();
                 RefreshFilter();
 
                 LootItem.CleanupNotificationHistory(UnfilteredLoot);
